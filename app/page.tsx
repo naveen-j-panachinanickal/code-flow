@@ -9,6 +9,7 @@ import './page.css';
 
 export default function Home() {
   const [code, setCode] = useState('');
+  const [language, setLanguage] = useState('javascript');
   const [isLoading, setIsLoading] = useState(false);
   const [explanation, setExplanation] = useState('');
   const [summary, setSummary] = useState('');
@@ -17,7 +18,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<'explanation' | 'flowchart'>('explanation');
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
 
-  const handleExplain = async (code: string) => {
+  const handleExplain = async (code: string, selectedLanguage: string) => {
     setIsLoading(true);
     setExplanation('');
     setSummary('');
@@ -28,7 +29,7 @@ export default function Home() {
       const response = await fetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code })
+        body: JSON.stringify({ code, language: selectedLanguage })
       });
 
       if (!response.ok) {
@@ -55,7 +56,9 @@ export default function Home() {
   const handleSelectHistory = (item: HistoryItem) => {
     setCode(item.codeSnippet);
     // Automatically explain it again so we get the fresh breakdown
-    handleExplain(item.codeSnippet);
+    // We default to javascript for history replay for MVP purposes
+    setLanguage('javascript');
+    handleExplain(item.codeSnippet, 'javascript');
   };
 
   return (
@@ -76,7 +79,9 @@ export default function Home() {
              <CodeEditor 
                 code={code} 
                 setCode={setCode} 
-                onExplain={() => handleExplain(code)} 
+                language={language}
+                setLanguage={setLanguage}
+                onExplain={(c, l) => handleExplain(c, l)} 
                 isLoading={isLoading} 
              />
           </div>

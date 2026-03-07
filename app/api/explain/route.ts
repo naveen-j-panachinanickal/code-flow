@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseAndExplainCode } from '@/lib/ast-parser';
+import { parseAndExplainCode as parseJS } from '@/lib/ast-parser';
+import { parseAndExplainCode as parsePython } from '@/lib/parsers/python-parser';
+import { parseAndExplainCode as parseJava } from '@/lib/parsers/java-parser';
 
 export async function POST(req: NextRequest) {
   try {
-    const { code } = await req.json();
+    const { code, language } = await req.json();
 
     if (!code || typeof code !== 'string') {
       return NextResponse.json(
@@ -12,8 +14,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Call our local AST parser instead of the AI model
-    const result = parseAndExplainCode(code);
+    // Default to Javascript parser if none passed
+    const lang = language || 'javascript';
+    
+    let result;
+    
+    switch (lang) {
+       case 'python':
+          result = parsePython(code);
+          break;
+       case 'java':
+          result = parseJava(code);
+          break;
+       case 'javascript':
+       case 'typescript':
+       default:
+          result = parseJS(code);
+          break;
+    }
 
     return NextResponse.json(result);
     

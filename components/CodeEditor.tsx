@@ -7,16 +7,16 @@ import './CodeEditor.css';
 interface CodeEditorProps {
   code: string;
   setCode: React.Dispatch<React.SetStateAction<string>>;
-  onExplain: (code: string) => void;
+  language: string;
+  setLanguage: React.Dispatch<React.SetStateAction<string>>;
+  onExplain: (code: string, language: string) => void;
   isLoading: boolean;
 }
 
-export default function CodeEditor({ code, setCode, onExplain, isLoading }: CodeEditorProps) {
-  const [language, setLanguage] = useState('javascript');
-
+export default function CodeEditor({ code, setCode, language, setLanguage, onExplain, isLoading }: CodeEditorProps) {
   const handleExplain = () => {
     if (code.trim()) {
-      onExplain(code);
+      onExplain(code, language);
     }
   };
 
@@ -36,6 +36,8 @@ export default function CodeEditor({ code, setCode, onExplain, isLoading }: Code
           >
              <option value="javascript">JavaScript</option>
              <option value="typescript">TypeScript</option>
+             <option value="python">Python</option>
+             <option value="java">Java</option>
           </select>
         </span>
       </div>
