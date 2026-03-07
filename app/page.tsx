@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import CodeEditor from '@/components/CodeEditor';
 import ExplanationPanel from '@/components/ExplanationPanel';
-import FlowDiagram from '@/components/FlowDiagram';
+import ReactFlowDiagram from '@/components/ReactFlowDiagram';
 import HistoryPanel, { HistoryItem } from '@/components/HistoryPanel';
 import './page.css';
 
@@ -13,16 +13,17 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [explanation, setExplanation] = useState('');
   const [summary, setSummary] = useState('');
-  const [diagram, setDiagram] = useState('');
+  const [nodes, setNodes] = useState<any[]>([]);
+  const [edges, setEdges] = useState<any[]>([]);
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
-  const [activeTab, setActiveTab] = useState<'explanation' | 'flowchart'>('explanation');
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
 
   const handleExplain = async (code: string, selectedLanguage: string) => {
     setIsLoading(true);
     setExplanation('');
     setSummary('');
-    setDiagram('');
+    setNodes([]);
+    setEdges([]);
     setComplexity(undefined);
 
     try {
@@ -39,7 +40,8 @@ export default function Home() {
       const data = await response.json();
       setExplanation(data.explanation || '');
       setSummary(data.summary || '');
-      setDiagram(data.diagram || '');
+      setNodes(data.nodes || []);
+      setEdges(data.edges || []);
       setComplexity(data.complexity);
       
       if (data.summary) {
@@ -55,8 +57,6 @@ export default function Home() {
 
   const handleSelectHistory = (item: HistoryItem) => {
     setCode(item.codeSnippet);
-    // Automatically explain it again so we get the fresh breakdown
-    // We default to javascript for history replay for MVP purposes
     setLanguage('javascript');
     handleExplain(item.codeSnippet, 'javascript');
   };
@@ -86,32 +86,33 @@ export default function Home() {
              />
           </div>
 
-          {/* Right Column - Output */}
+          {/* Right Column - Output (always visible, stacked) */}
           <div className="col-right">
-            
-            <div className="tabs-container">
-              <button 
-                className={`tab-item ${activeTab === 'explanation' ? 'active' : ''}`}
-                onClick={() => setActiveTab('explanation')}
-              >
-                Code Breakdown & Metrics
-              </button>
-              <button 
-                className={`tab-item ${activeTab === 'flowchart' ? 'active' : ''}`}
-                onClick={() => setActiveTab('flowchart')}
-              >
-                Logic Flowchart
-              </button>
+
+            {/* Section 1: Code Breakdown & Metrics */}
+            <ExplanationPanel explanation={explanation} summary={summary} complexity={complexity} isLoading={isLoading} />
+
+            {/* Section 2: Interactive Execution Path */}
+            <div style={{ marginTop: '24px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  🎯 Interactive Execution Path
+                </h2>
+                <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Drag nodes • Scroll to zoom • Hit <strong style={{ color: '#38bdf8' }}>▶ Play Execution</strong> to animate step-by-step
+                </p>
+              </div>
+              <div style={{ height: '500px', minHeight: '500px' }}>
+                {isLoading ? (
+                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    Generating flow diagram...
+                  </div>
+                ) : (
+                  <ReactFlowDiagram nodes={nodes} edges={edges} />
+                )}
+              </div>
             </div>
 
-            <div className="output-stack tab-content">
-               {activeTab === 'explanation' && (
-                  <ExplanationPanel explanation={explanation} summary={summary} complexity={complexity} isLoading={isLoading} />
-               )}
-               {activeTab === 'flowchart' && (
-                  <FlowDiagram diagramCode={diagram} isLoading={isLoading} />
-               )}
-            </div>
           </div>
         </div>
       </main>
@@ -124,3 +125,5 @@ export default function Home() {
     </div>
   );
 }
+
+

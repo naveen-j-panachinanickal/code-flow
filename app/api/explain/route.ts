@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { parseAndExplainCode as parseJS } from '@/lib/ast-parser';
-import { parseAndExplainCode as parsePython } from '@/lib/parsers/python-parser';
-import { parseAndExplainCode as parseJava } from '@/lib/parsers/java-parser';
+import { parseAndExplainCode } from '@/lib/tree-sitter-parser';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,24 +12,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Default to Javascript parser if none passed
     const lang = language || 'javascript';
-    
-    let result;
-    
-    switch (lang) {
-       case 'python':
-          result = parsePython(code);
-          break;
-       case 'java':
-          result = parseJava(code);
-          break;
-       case 'javascript':
-       case 'typescript':
-       default:
-          result = parseJS(code);
-          break;
-    }
+    const result = await parseAndExplainCode(code, lang);
 
     return NextResponse.json(result);
     
