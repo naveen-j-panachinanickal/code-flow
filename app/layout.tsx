@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "AI Code Explainer",
-  description: "Understand AI-generated code logically and visually.",
+  title: "Quality Code",
+  description: "Code Made Clear — understand your code logically, visually, and qualitatively.",
 };
 
 export default function RootLayout({
