@@ -185,15 +185,145 @@ export async function parseAndExplainCode(code: string, language: string): Promi
     if (cyclomaticComplexity > 10) rating = 'High';
     else if (cyclomaticComplexity > 5) rating = 'Medium';
 
+    // ===== CODE QUALITY ANALYSIS =====
+    const codeLines = code.split('\n');
+    const totalLines = codeLines.length;
+    const blankLines = codeLines.filter(l => l.trim() === '').length;
+    const commentLines = codeLines.filter(l => {
+      const t = l.trim();
+      return t.startsWith('//') || t.startsWith('#') || t.startsWith('*') || t.startsWith('/*') || t.startsWith('*/') || t.startsWith('"""') || t.startsWith("'''");
+    }).length;
+    const codeOnlyLines = totalLines - blankLines - commentLines;
+
+    // Count functions and their lengths
+    const funcNodes: any[] = [];
+    function collectFunctions(node: any) {
+      if (['function_definition', 'method_declaration', 'function_declaration', 'arrow_function'].includes(node.type)) {
+        funcNodes.push(node);
+      }
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child) collectFunctions(child);
+      }
+    }
+    collectFunctions(tree.rootNode);
+
+    const functionCount = funcNodes.length;
+    const functionLengths = funcNodes.map(f => f.endPosition.row - f.startPosition.row + 1);
+    const avgFunctionLength = functionCount > 0 
+      ? Math.round(functionLengths.reduce((a, b) => a + b, 0) / functionCount)
+      : 0;
+    const maxFunctionLength = functionCount > 0 ? Math.max(...functionLengths) : 0;
+
+    // Max nesting depth
+    function getMaxDepth(node: any, depth = 0): number {
+      const nestyTypes = ['if_statement', 'for_statement', 'while_statement', 'try_statement', 'switch_statement', 'with_statement'];
+      const currentDepth = nestyTypes.includes(node.type) ? depth + 1 : depth;
+      let max = currentDepth;
+      for (let i = 0; i < node.namedChildCount; i++) {
+        const child = node.namedChild(i);
+        if (child) max = Math.max(max, getMaxDepth(child, currentDepth));
+      }
+      return max;
+    }
+    const maxNestingDepth = getMaxDepth(tree.rootNode);
+
+    // Count parameters per function
+    const paramCounts = funcNodes.map(f => {
+      const params = f.childForFieldName('parameters') || f.childForFieldName('formal_parameters');
+      return params ? params.namedChildCount : 0;
+    });
+    const maxParams = paramCounts.length > 0 ? Math.max(...paramCounts) : 0;
+
+    // Maintainability Index (simplified Microsoft formula variant: 0-100)
+    const halsteadVolume = codeOnlyLines * Math.log2(Math.max(codeOnlyLines, 2));
+    const mi = Math.max(0, Math.min(100, Math.round(
+      171 - 5.2 * Math.log(Math.max(halsteadVolume, 1)) - 0.23 * cyclomaticComplexity - 16.2 * Math.log(Math.max(codeOnlyLines, 1))
+    )));
+
+    // Code Smells
+    const smells: import('./types').CodeSmell[] = [];
+
+    funcNodes.forEach((f, i) => {
+      const len = functionLengths[i];
+      const params = paramCounts[i];
+      const nameNode = f.childForFieldName('name');
+      const name = nameNode ? nameNode.text : 'anonymous';
+      if (len > 30) smells.push({ severity: 'warning', message: `Function '${name}' is ${len} lines long (recommended < 30)`, line: f.startPosition.row + 1 });
+      if (len > 50) smells.push({ severity: 'error', message: `Function '${name}' is too long at ${len} lines — consider breaking it up`, line: f.startPosition.row + 1 });
+      if (params > 5) smells.push({ severity: 'warning', message: `Function '${name}' has ${params} parameters (recommended ≤ 5)`, line: f.startPosition.row + 1 });
+    });
+
+    if (maxNestingDepth > 4) smells.push({ severity: 'error', message: `Max nesting depth is ${maxNestingDepth} (recommended ≤ 4) — flatten with early returns` });
+    else if (maxNestingDepth > 3) smells.push({ severity: 'warning', message: `Nesting depth of ${maxNestingDepth} makes code harder to read` });
+
+    // Language-specific smells
+    if (language.toLowerCase() === 'javascript' || language.toLowerCase() === 'typescript') {
+      const varMatches = code.match(/\bvar\b/g);
+      if (varMatches) smells.push({ severity: 'info', message: `Found ${varMatches.length} use(s) of 'var' — prefer 'const' or 'let'` });
+      if (code.includes('== ') && !code.includes('=== ')) smells.push({ severity: 'warning', message: "Use '===' instead of '==' for strict equality comparisons" });
+    }
+    if (language.toLowerCase() === 'python') {
+      if (code.includes('except:') || code.match(/except\s*:\s*(\n|$)/)) smells.push({ severity: 'error', message: "Bare 'except:' clause detected — always specify the exception type" });
+    }
+    if (language.toLowerCase() === 'java') {
+      if (code.includes('catch (Exception e) {}') || code.match(/catch\s*\([^)]+\)\s*\{\s*\}/)) smells.push({ severity: 'error', message: 'Empty catch block detected — handle or log the exception' });
+    }
+
+    // Magic numbers
+    const magicNumbers = code.match(/(?<![.\w])\b(?!0|1|2\b)\d+\b(?!\s*[;,])(?!\w)/g);
+    if (magicNumbers && magicNumbers.length > 3) {
+      smells.push({ severity: 'info', message: `${magicNumbers.length} magic numbers detected — consider extracting them into named constants` });
+    }
+
+    // Suggestions
+    const suggestions: string[] = [];
+    if (language.toLowerCase() === 'javascript') {
+      suggestions.push('✅ Use arrow functions for callbacks and short expressions');
+      suggestions.push('✅ Prefer destructuring for cleaner variable assignments');
+      if (cyclomaticComplexity > 5) suggestions.push('✅ Consider extracting complex conditionals into named boolean variables');
+    }
+    if (language.toLowerCase() === 'python') {
+      suggestions.push('✅ Add type hints (e.g. def foo(x: int) -> str:) for better readability');
+      suggestions.push('✅ Use list comprehensions instead of map/filter where possible');
+      if (functionCount > 3) suggestions.push('✅ Consider grouping related functions into a class');
+    }
+    if (language.toLowerCase() === 'java') {
+      suggestions.push('✅ Use the final keyword on variables that are never reassigned');
+      suggestions.push('✅ Prefer interfaces over abstract classes for flexibility');
+      suggestions.push('✅ Use try-with-resources for streams and connections');
+    }
+    if (commentLines < Math.floor(totalLines * 0.1)) suggestions.push('✅ Add more comments — aim for at least 10% comment density');
+    if (avgFunctionLength > 20) suggestions.push('✅ Keep functions under 20 lines — smaller functions are easier to test');
+
+    // Scores
+    const locScore = Math.max(0, Math.min(100, 100 - Math.max(0, totalLines - 200)));
+    const nestScore = maxNestingDepth <= 2 ? 100 : maxNestingDepth === 3 ? 80 : maxNestingDepth === 4 ? 60 : 30;
+    const fnLenScore = avgFunctionLength <= 15 ? 100 : avgFunctionLength <= 25 ? 80 : avgFunctionLength <= 40 ? 60 : 30;
+    const smellPenalty = smells.filter(s => s.severity === 'error').length * 15 + smells.filter(s => s.severity === 'warning').length * 7;
+    const overallScore = Math.max(0, Math.min(100, Math.round((mi + nestScore + fnLenScore) / 3 - smellPenalty)));
+
+    const codeQuality: import('./types').CodeQuality = {
+      overallScore,
+      metrics: [
+        { label: 'Lines of Code', value: totalLines, score: locScore },
+        { label: 'Functions', value: functionCount, score: functionCount === 0 ? 100 : Math.max(0, 100 - functionCount * 2) },
+        { label: 'Avg Function Length', value: avgFunctionLength > 0 ? `${avgFunctionLength} lines` : 'N/A', score: fnLenScore },
+        { label: 'Max Nesting Depth', value: maxNestingDepth, score: nestScore },
+        { label: 'Maintainability', value: mi >= 80 ? 'High' : mi >= 50 ? 'Medium' : 'Low', score: mi },
+        { label: 'Comment Density', value: `${Math.round((commentLines / Math.max(totalLines, 1)) * 100)}%`, score: Math.min(100, Math.round((commentLines / Math.max(totalLines, 1)) * 500)) },
+      ],
+      smells,
+      suggestions
+    };
+
     return {
       explanation: finalExplanation,
       summary: finalSummary,
       nodes,
       edges,
-      complexity: {
-        score: cyclomaticComplexity,
-        rating
-      }
+      complexity: { score: cyclomaticComplexity, rating },
+      codeQuality
     };
   } catch (error: any) {
     console.error("Tree-Sitter Parsing Error:", error);
@@ -202,7 +332,8 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       summary: "The code provided appears to contain syntax errors or is not a known language.",
       nodes: [{ id: 'error', position: { x: 0, y: 0 }, data: { label: 'Syntax Error' }, style: { background: '#ef4444', color: '#fff', padding: '10px 16px', borderRadius: '8px', border: '2px solid #b91c1c' } }],
       edges: [],
-      complexity: { score: 0, rating: 'Error' }
+      complexity: { score: 0, rating: 'Error' },
+      codeQuality: { overallScore: 0, metrics: [], smells: [], suggestions: [] }
     };
   }
 }

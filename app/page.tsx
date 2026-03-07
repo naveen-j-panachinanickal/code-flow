@@ -4,6 +4,7 @@ import { useState } from 'react';
 import CodeEditor from '@/components/CodeEditor';
 import ExplanationPanel from '@/components/ExplanationPanel';
 import ReactFlowDiagram from '@/components/ReactFlowDiagram';
+import CodeQualityPanel from '@/components/CodeQualityPanel';
 import HistoryPanel, { HistoryItem } from '@/components/HistoryPanel';
 import './page.css';
 
@@ -16,6 +17,7 @@ export default function Home() {
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
+  const [codeQuality, setCodeQuality] = useState<any>(undefined);
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
 
   const handleExplain = async (code: string, selectedLanguage: string) => {
@@ -25,6 +27,7 @@ export default function Home() {
     setNodes([]);
     setEdges([]);
     setComplexity(undefined);
+    setCodeQuality(undefined);
 
     try {
       const response = await fetch('/api/explain', {
@@ -43,6 +46,7 @@ export default function Home() {
       setNodes(data.nodes || []);
       setEdges(data.edges || []);
       setComplexity(data.complexity);
+      setCodeQuality(data.codeQuality);
       
       if (data.summary) {
         setHistoryTrigger({ code, summary: data.summary });
@@ -111,6 +115,19 @@ export default function Home() {
                   <ReactFlowDiagram nodes={nodes} edges={edges} />
                 )}
               </div>
+            </div>
+
+            {/* Section 3: Code Quality Review */}
+            <div style={{ marginTop: '24px', marginBottom: '24px' }}>
+              <div style={{ marginBottom: '12px' }}>
+                <h2 style={{ fontSize: '1.1rem', fontWeight: 700, color: '#f1f5f9', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  🔍 Code Quality Review
+                </h2>
+                <p style={{ fontSize: '0.8rem', color: '#64748b' }}>
+                  Static analysis • Code smells • Best practice suggestions
+                </p>
+              </div>
+              <CodeQualityPanel codeQuality={codeQuality} isLoading={isLoading} />
             </div>
 
           </div>

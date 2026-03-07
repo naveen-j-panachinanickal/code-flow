@@ -20,6 +20,25 @@ export interface FlowEdge {
   labelBgStyle?: Record<string, any>;
 }
 
+export interface CodeSmell {
+  severity: 'error' | 'warning' | 'info';
+  message: string;
+  line?: number;
+}
+
+export interface CodeQualityMetric {
+  label: string;
+  value: string | number;
+  score: number; // 0-100
+}
+
+export interface CodeQuality {
+  overallScore: number;
+  metrics: CodeQualityMetric[];
+  smells: CodeSmell[];
+  suggestions: string[];
+}
+
 export interface ExplanationResult {
   explanation: string;
   summary: string;
@@ -29,4 +48,5 @@ export interface ExplanationResult {
     score: number;
     rating: string;
   };
+  codeQuality: CodeQuality;
 }
