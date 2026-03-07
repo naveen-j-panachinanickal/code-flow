@@ -5,6 +5,10 @@ export interface ExplanationResult {
   explanation: string;
   summary: string;
   diagram: string;
+  complexity: {
+    score: number;
+    rating: string;
+  };
 }
 
 export function parseAndExplainCode(code: string): ExplanationResult {
@@ -13,6 +17,9 @@ export function parseAndExplainCode(code: string): ExplanationResult {
     
     const explanationLines: string[] = [];
     const summaryPoints: string[] = [];
+    
+    // Metrics State
+    let cyclomaticComplexity = 1; // Base complexity is 1 for a single path
     
     // Mermaid diagram state
     let diagram = 'flowchart TD\n';
@@ -30,6 +37,21 @@ export function parseAndExplainCode(code: string): ExplanationResult {
     estraverse.traverse(ast as any, {
       enter: function (node, parent) {
         
+        // Cyclomatic Complexity calculation: +1 for every control flow branch
+        if ([
+          'IfStatement', 'ForStatement', 'WhileStatement', 'DoWhileStatement', 
+          'CatchClause', 'ConditionalExpression', 'LogicalExpression'
+        ].includes(node.type)) {
+          cyclomaticComplexity++;
+        }
+        
+        if (node.type === 'SwitchCase') {
+          // Default case does not add to complexity, only actual cases
+          if ((node as any).test !== null) {
+            cyclomaticComplexity++;
+          }
+        }
+
         switch (node.type) {
           case 'FunctionDeclaration':
             const funcName = node.id ? node.id.name : 'anonymous';
@@ -40,6 +62,14 @@ export function parseAndExplainCode(code: string): ExplanationResult {
             diagram += `${currentNodeId} --> ${funcNodeId}["Define Function: ${funcName}"]\n`;
             currentNodeId = funcNodeId;
             break;
+
+          case 'ArrowFunctionExpression':
+             summaryPoints.push(`Defines an arrow function.`);
+             explanationLines.push(`Line ${node.loc?.start.line || '?'}: Defines an arrow function.`);
+             const arrowNodeId = getNodeId('arrow');
+             diagram += `${currentNodeId} --> ${arrowNodeId}["Define Arrow Function"]\n`;
+             currentNodeId = arrowNodeId;
+             break;
             
           case 'VariableDeclaration':
             const kind = node.kind;
@@ -61,6 +91,14 @@ export function parseAndExplainCode(code: string): ExplanationResult {
             
             currentNodeId = noNodeId; // simplified pathing
             break;
+
+          case 'SwitchStatement':
+            summaryPoints.push(`Contains a switch statement for multi-case logic.`);
+            explanationLines.push(`Line ${node.loc?.start.line || '?'}: Evaluates a switch statement.`);
+            const switchNodeId = getNodeId('switch');
+            diagram += `${currentNodeId} --> ${switchNodeId}{"Switch Cases"}\n`;
+            currentNodeId = switchNodeId;
+            break;
             
           case 'ForStatement':
           case 'WhileStatement':
@@ -72,6 +110,22 @@ export function parseAndExplainCode(code: string): ExplanationResult {
             diagram += `${loopNodeId} -- Repeat --> ${loopNodeId}\n`;
             diagram += `${loopNodeId} -- End --> ${getNodeId('endloop')}["Exit Loop"]\n`;
             currentNodeId = loopNodeId;
+            break;
+
+          case 'TryStatement':
+            summaryPoints.push(`Contains error handling (try/catch block).`);
+            explanationLines.push(`Line ${node.loc?.start.line || '?'}: Starts a try block to catch potential runtime errors.`);
+            const tryNodeId = getNodeId('try');
+            diagram += `${currentNodeId} --> ${tryNodeId}["Try Block"]\n`;
+            currentNodeId = tryNodeId;
+            break;
+
+          case 'CatchClause':
+            explanationLines.push(`Line ${node.loc?.start.line || '?'}: Catches errors thrown in the preceding try block.`);
+            const catchNodeId = getNodeId('catch');
+            // Assuming the try block flows into the catch block on error
+            diagram += `${currentNodeId} -. Error .-> ${catchNodeId}["Catch Error"]\n`;
+            currentNodeId = catchNodeId;
             break;
             
           case 'ReturnStatement':
@@ -110,10 +164,19 @@ export function parseAndExplainCode(code: string): ExplanationResult {
       ? explanationLines.join('\n')
       : "The code is parsed successfully, but no major structural landmarks (like functions, loops, or conditionals) were highlighted.";
 
+    // Determine complexity rating
+    let rating = 'Low';
+    if (cyclomaticComplexity > 10) rating = 'High';
+    else if (cyclomaticComplexity > 5) rating = 'Medium';
+
     return {
       explanation: finalExplanation,
       summary: finalSummary,
-      diagram: diagram
+      diagram: diagram,
+      complexity: {
+        score: cyclomaticComplexity,
+        rating: rating
+      }
     };
     
   } catch (error: any) {
@@ -121,7 +184,11 @@ export function parseAndExplainCode(code: string): ExplanationResult {
     return {
       explanation: `Could not parse the code structure. Error: ${error.message}`,
       summary: "The code provided appears to contain syntax errors or is not valid JavaScript.",
-      diagram: "flowchart TD\nError[\"Syntax Error in Code\"]\nError --> End"
+      diagram: "flowchart TD\nError[\"Syntax Error in Code\"]\nError --> End",
+      complexity: {
+        score: 0,
+        rating: 'Error'
+      }
     };
   }
 }

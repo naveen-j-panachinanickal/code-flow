@@ -1,0 +1,54 @@
+.metrics-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-xl);
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-tertiary);
+  margin-bottom: 16px;
+}
+
+.metrics-label {
+  color: var(--text-tertiary);
+}
+
+.metrics-value {
+  font-weight: 700;
+}
+
+.metrics-rating {
+  font-size: 0.8rem;
+}
+
+/* Dynamic Colors */
+.rating-low {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: rgba(16, 185, 129, 0.1);
+}
+.rating-low .metrics-value, .rating-low .metrics-rating {
+  color: var(--success);
+}
+
+.rating-medium {
+  border-color: rgba(245, 158, 11, 0.3);
+  background: rgba(245, 158, 11, 0.1);
+}
+.rating-medium .metrics-value, .rating-medium .metrics-rating {
+  color: var(--warning);
+}
+
+.rating-high {
+  border-color: rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+}
+.rating-high .metrics-value, .rating-high .metrics-rating {
+  color: var(--error);
+}
+
+.rating-error {
+  border-color: var(--border-strong);
+  color: var(--text-tertiary);
+}

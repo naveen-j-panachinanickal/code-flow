@@ -33,23 +33,34 @@
   font-family: var(--font-mono);
   font-size: 0.85rem;
   color: var(--text-tertiary);
-}
-
-.editor-textarea {
+  display: flex;
+  align-items: center;
   flex: 1;
-  background: transparent;
-  border: none;
-  padding: 20px;
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-  font-size: 14px;
-  line-height: 1.6;
-  resize: none;
-  outline: none;
 }
 
-.editor-textarea::placeholder {
-  color: var(--text-tertiary);
+.language-selector {
+  margin-left: auto;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  outline: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.language-selector:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.monaco-wrapper {
+  flex: 1;
+  position: relative;
+  min-height: 300px;
 }
 
 .editor-footer {

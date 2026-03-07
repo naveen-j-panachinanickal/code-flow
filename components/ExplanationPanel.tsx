@@ -1,13 +1,18 @@
 import React from 'react';
+import MetricsBadge from './MetricsBadge';
 import './ExplanationPanel.css';
 
 interface ExplanationPanelProps {
   explanation: string;
   summary: string;
+  complexity?: {
+    score: number;
+    rating: string;
+  };
   isLoading: boolean;
 }
 
-export default function ExplanationPanel({ explanation, summary, isLoading }: ExplanationPanelProps) {
+export default function ExplanationPanel({ explanation, summary, complexity, isLoading }: ExplanationPanelProps) {
   if (isLoading) {
     return (
       <div className="explanation-panel glass-panel loading-state">
@@ -35,6 +40,8 @@ export default function ExplanationPanel({ explanation, summary, isLoading }: Ex
 
   return (
     <div className="explanation-panel glass-panel animate-fade-in">
+      {complexity && <MetricsBadge score={complexity.score} rating={complexity.rating} />}
+
       {summary && (
         <section className="explanation-section">
           <h3 className="section-title gradient-text-accent">Summary</h3>

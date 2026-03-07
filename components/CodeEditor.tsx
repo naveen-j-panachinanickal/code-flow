@@ -1,15 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
+import Editor from '@monaco-editor/react';
 import './CodeEditor.css';
 
 interface CodeEditorProps {
+  code: string;
+  setCode: React.Dispatch<React.SetStateAction<string>>;
   onExplain: (code: string) => void;
   isLoading: boolean;
 }
 
-export default function CodeEditor({ onExplain, isLoading }: CodeEditorProps) {
-  const [code, setCode] = useState('');
+export default function CodeEditor({ code, setCode, onExplain, isLoading }: CodeEditorProps) {
+  const [language, setLanguage] = useState('javascript');
 
   const handleExplain = () => {
     if (code.trim()) {
@@ -25,16 +28,42 @@ export default function CodeEditor({ onExplain, isLoading }: CodeEditorProps) {
           <span className="dot yellow"></span>
           <span className="dot green"></span>
         </div>
-        <span className="header-title">Code Input</span>
+        <span className="header-title">Code Input 
+          <select 
+             value={language} 
+             onChange={(e) => setLanguage(e.target.value)}
+             className="language-selector"
+          >
+             <option value="javascript">JavaScript</option>
+             <option value="typescript">TypeScript</option>
+          </select>
+        </span>
       </div>
       
-      <textarea
-        className="editor-textarea"
-        value={code}
-        onChange={(e) => setCode(e.target.value)}
-        placeholder="// Paste your code here to analyze..."
-        spellCheck={false}
-      />
+      <div className="monaco-wrapper">
+        <Editor
+          height="100%"
+          language={language}
+          theme="vs-dark"
+          value={code}
+          onChange={(val) => setCode(val || '')}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: 'var(--font-mono)',
+            padding: { top: 16 },
+            scrollBeyondLastLine: false,
+            smoothScrolling: true,
+            cursorBlinking: 'smooth',
+            renderLineHighlight: 'all'
+          }}
+          loading={
+             <div className="loading-state h-full">
+                <span className="loading-spinner"></span>
+             </div>
+          }
+        />
+      </div>
       
       <div className="editor-footer">
         <button 

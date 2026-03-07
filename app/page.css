@@ -48,13 +48,51 @@
 .col-right {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 16px; /* spacing between tabs and content */
+  height: 100%;
+}
+
+.tabs-container {
+  display: flex;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 4px;
+  gap: 4px;
+}
+
+.tab-item {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-family: var(--font-sans);
+  font-weight: 500;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.tab-item:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.tab-item.active {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--border-subtle);
 }
 
 .output-stack {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: 20px;
+  flex: 1;
+  overflow-y: auto;
 }
 
 /* Tablet / Desktop Grid */
