@@ -1,64 +1,71 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+'use client';
+
+import { useState } from 'react';
+import CodeEditor from '@/components/CodeEditor';
+import ExplanationPanel from '@/components/ExplanationPanel';
+import FlowDiagram from '@/components/FlowDiagram';
+import './page.css';
 
 export default function Home() {
+  const [isLoading, setIsLoading] = useState(false);
+  const [explanation, setExplanation] = useState('');
+  const [summary, setSummary] = useState('');
+  const [diagram, setDiagram] = useState('');
+
+  const handleExplain = async (code: string) => {
+    setIsLoading(true);
+    setExplanation('');
+    setSummary('');
+    setDiagram('');
+
+    try {
+      const response = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch explanation');
+      }
+
+      const data = await response.json();
+      setExplanation(data.explanation || '');
+      setSummary(data.summary || '');
+      setDiagram(data.diagram || '');
+    } catch (error) {
+      console.error('Error explaining code:', error);
+      setExplanation('An error occurred while generating the explanation. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className={styles.intro}>
-          <h1>To get started, edit the page.tsx file.</h1>
-          <p>
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className={styles.secondary}
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+    <div className="layout-container">
+      <header className="page-header animate-fade-in">
+        <h1 className="logo-title gradient-text">
+          <span className="accent-icon">✦</span> AI Code Explainer
+        </h1>
+        <p className="subtitle text-tertiary">
+          Understand AI-generated code logically and visually before blindly pasting it.
+        </p>
+      </header>
+
+      <main className="main-content">
+        <div className="grid-layout">
+          {/* Left Column - Input */}
+          <div className="col-left">
+             <CodeEditor onExplain={handleExplain} isLoading={isLoading} />
+          </div>
+
+          {/* Right Column - Output */}
+          <div className="col-right">
+            <div className="output-stack">
+               <ExplanationPanel explanation={explanation} summary={summary} isLoading={isLoading} />
+               <FlowDiagram diagramCode={diagram} isLoading={isLoading} />
+            </div>
+          </div>
         </div>
       </main>
     </div>

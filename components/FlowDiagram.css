@@ -1,0 +1,74 @@
+.flow-diagram-container {
+  padding: 24px;
+  height: 100%;
+  min-height: 400px;
+  max-height: 700px;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: var(--text-tertiary);
+  gap: 12px;
+}
+
+.empty-state h3 {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.empty-icon-diagram {
+  font-size: 48px;
+  opacity: 0.5;
+  margin-bottom: 8px;
+  animation: float 4s ease-in-out infinite;
+  color: var(--accent-primary);
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.diagram-wrapper {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.diagram-wrapper svg {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+.error-msg {
+  color: var(--error);
+  padding: 16px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.skeleton-box {
+  width: 90%;
+  height: 300px;
+  background: linear-gradient(90deg, var(--border-subtle) 25%, var(--border-strong) 50%, var(--border-subtle) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite ease-in-out;
+  border-radius: var(--radius-md);
+}
