@@ -100,6 +100,10 @@ npm run start
 
 ## Future Roadmap / Potential Refactors
 
-1. **State Management**: As `page.tsx` grows, migrating the UI state (active tab, active file, nodes/edges) into a Zustand store would clean up prop-drilling.
-2. **Web Workers**: Currently, Tree-Sitter runs on the main browser thread. Moving the AST parsing into a Web Worker (`worker.ts`) would guarantee the UI never stutters when parsing massive files.
-3. **Database Integration**: Connecting to an edge database (like Vercel Postgres/Supabase) to store user search history permanently across devices, rather than relying on `localStorage`.
+1. **Expanded Language Support**: 
+   - Add Tree-Sitter WASM binaries for backend languages (Go, Rust, Ruby, PHP) and modern frontend languages (Svelte, Vue).
+   - **Language Versioning**: Implement AST fallbacks for specific language versions (e.g., Python 2 vs Python 3, or Java 8 vs Java 21) by loading the appropriate compiled `tree-sitter` WASM binary version dynamically.
+2. **State Management**: As `page.tsx` grows, migrating the UI state (active tab, active file, nodes/edges) into a Zustand store would clean up prop-drilling.
+3. **Web Workers**: Currently, Tree-Sitter runs on the main browser thread. Moving the AST parsing into a background Web Worker (`worker.ts`) would guarantee the UI never stutters when parsing massive files.
+4. **Database Integration**: Connecting to an edge database (like Vercel Postgres/Supabase) to store user search history, Repo Health scores over time, and custom user rules, rather than relying solely on local browser storage.
+5. **Custom Rules Engine**: Allow users or teams to define their own custom Code Smells or Architectural rules (e.g., "Flag any direct SQL queries not using an ORM") via a `.quality-code.json` config file inside their repository.
