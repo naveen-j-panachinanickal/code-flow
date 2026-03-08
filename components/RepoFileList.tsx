@@ -41,6 +41,9 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
         onMouseEnter={e => { if (onHeaderClick) e.currentTarget.style.background = 'rgba(30,41,59,0.8)'; }}
         onMouseLeave={e => { if (onHeaderClick) e.currentTarget.style.background = 'rgba(15,23,42,0.7)'; }}
       >
+        <div style={{ fontSize: '0.65rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '6px' }}>
+          Repository Summary
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>

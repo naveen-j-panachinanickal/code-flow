@@ -375,10 +375,7 @@ export default function Home() {
             <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none', flexDirection: 'column', gap: '16px', padding: '16px', overflowY: 'auto' }}>
               {/* Repo health section always shown when in repo mode */}
               {isRepoMode && repoHealth && (
-                <div>
-                  <div className="section-heading" style={{ marginBottom: '12px' }}>Repository Summary</div>
-                  <RepoHealthSection health={repoHealth} />
-                </div>
+                <RepoHealthSection health={repoHealth} />
               )}
               {/* Repo info banner when no file selected yet */}
               {isRepoMode && !activeFilePath && !repoHealth && (
