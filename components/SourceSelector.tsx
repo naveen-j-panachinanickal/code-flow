@@ -113,66 +113,52 @@ export default function SourceSelector({
           />
         )}
 
-        {/* GitHub mode — repo file browser (after scan) */}
-        {mode === 'github' && hasRepoScan && (
-          <RepoFileList
-            owner={repoOwner}
-            repo={repoRepo}
-            branch={repoBranch}
-            files={repoFiles}
-            repoHealth={repoHealth}
-            activeFilePath={activeFilePath}
-            onFileSelect={onFileSelect}
-            onReset={onRepoReset}
-          />
-        )}
+        {/* GitHub mode */}
+        {mode === 'github' && (
+          <>
+            <div style={{ display: 'flex', flexDirection: 'column', padding: '16px', gap: '12px', flexShrink: 0 }}>
+              {/* Auth hint */}
+              {isLoggedIn === false && (
+                <a href="/api/auth/login" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)',
+                  borderRadius: '8px', padding: '10px 14px', textDecoration: 'none', transition: 'all 0.15s',
+                }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.12)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'rgba(139,92,246,0.06)'}>
+                  <div>
+                    <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#a78bfa' }}>🔐 Login with GitHub for private repos</div>
+                    <div style={{ fontSize: '0.68rem', color: '#475569', marginTop: '2px' }}>Public repos work without login</div>
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: '#a78bfa', fontWeight: 600 }}>Login →</span>
+                </a>
+              )}
 
-        {/* GitHub mode — URL input (before scan) */}
-        {mode === 'github' && !hasRepoScan && (
-          <div style={{ display: 'flex', flexDirection: 'column', padding: '16px', gap: '12px' }}>
-
-            {/* Auth hint */}
-            {isLoggedIn === false && (
-              <a href="/api/auth/login" style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)',
-                borderRadius: '8px', padding: '10px 14px', textDecoration: 'none', transition: 'all 0.15s',
-              }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(139,92,246,0.12)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'rgba(139,92,246,0.06)'}>
-                <div>
-                  <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#a78bfa' }}>🔐 Login with GitHub for private repos</div>
-                  <div style={{ fontSize: '0.68rem', color: '#475569', marginTop: '2px' }}>Public repos work without login</div>
+              {isLoggedIn === true && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '8px', padding: '8px 14px', fontSize: '0.75rem', color: '#22c55e' }}>
+                  ✅ Logged in — private repos enabled
                 </div>
-                <span style={{ fontSize: '0.75rem', color: '#a78bfa', fontWeight: 600 }}>Login →</span>
-              </a>
-            )}
+              )}
 
-            {isLoggedIn === true && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.15)', borderRadius: '8px', padding: '8px 14px', fontSize: '0.75rem', color: '#22c55e' }}>
-                ✅ Logged in — private repos enabled
-              </div>
-            )}
-
-            <GithubInput
-              onFileLoaded={(c, l, name) => { onFileLoaded(c, l, name); setMode('editor'); }}
-              onRepoLoaded={onRepoLoaded}
-              isLoading={isLoading}
-            />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <div style={{ fontSize: '0.67rem', fontWeight: 600, color: '#334155', textTransform: 'uppercase', letterSpacing: '0.07em' }}>How it works</div>
-              {[
-                { icon: '📄', text: 'File URL (/blob/) → loads into editor, all 3 tabs populated' },
-                { icon: '📦', text: 'Repo URL → scans files → click any file to analyze' },
-                { icon: '⚡', text: 'All 3 tabs (Breakdown, Execution, Quality) work the same' },
-              ].map((h, i) => (
-                <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '0.73rem', color: '#334155' }}>
-                  <span>{h.icon}</span><span>{h.text}</span>
-                </div>
-              ))}
+              <GithubInput
+                onFileLoaded={(c, l, name) => { onFileLoaded(c, l, name); setMode('editor'); }}
+                onRepoLoaded={onRepoLoaded}
+                isLoading={isLoading}
+              />
             </div>
-          </div>
+
+            {hasRepoScan && (
+              <RepoFileList
+                owner={repoOwner}
+                repo={repoRepo}
+                branch={repoBranch}
+                files={repoFiles}
+                repoHealth={repoHealth}
+                activeFilePath={activeFilePath}
+                onFileSelect={onFileSelect}
+              />
+            )}
+          </>
         )}
       </div>
 

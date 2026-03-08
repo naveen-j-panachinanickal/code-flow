@@ -11,7 +11,6 @@ interface Props {
   repoHealth: RepoHealth | null;
   activeFilePath: string | null;
   onFileSelect: (file: RepoFileResult) => void;
-  onReset: () => void;
 }
 
 function ScorePill({ score }: { score: number }) {
@@ -23,7 +22,7 @@ function ScorePill({ score }: { score: number }) {
   );
 }
 
-export default function RepoFileList({ owner, repo, branch, files, repoHealth, activeFilePath, onFileSelect, onReset }: Props) {
+export default function RepoFileList({ owner, repo, branch, files, repoHealth, activeFilePath, onFileSelect }: Props) {
   const healthColor = repoHealth
     ? repoHealth.score >= 75 ? '#22c55e' : repoHealth.score >= 50 ? '#f59e0b' : '#ef4444'
     : '#475569';
@@ -101,21 +100,7 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
         </div>
       )}
 
-      {/* Reset button */}
-      <div style={{ padding: '8px 12px', borderTop: '1px solid rgba(255,255,255,0.05)', flexShrink: 0 }}>
-        <button
-          onClick={onReset}
-          style={{
-            width: '100%', background: 'none', border: '1px solid rgba(255,255,255,0.08)',
-            color: '#475569', padding: '6px', borderRadius: '6px',
-            fontSize: '0.72rem', cursor: 'pointer', transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(139,92,246,0.3)'; e.currentTarget.style.color = '#a78bfa'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#475569'; }}
-        >
-          🔗 Scan a different repo
-        </button>
-      </div>
+
     </div>
   );
 }

@@ -23,7 +23,7 @@ export default function Home() {
   const [edges, setEdges] = useState<any[]>([]);
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
   const [codeQuality, setCodeQuality] = useState<any>(undefined);
-  const [activeTab, setActiveTab] = useState<Tab>('breakdown');
+  const [activeTab, setActiveTab] = useState<Tab>('quality');
   // historyTrigger used to save analysis to history
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
   const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
@@ -220,6 +220,13 @@ export default function Home() {
 
   const tabs: { id: Tab; icon: string; label: string; badge?: string; badgeClass?: string }[] = [
     {
+      id: 'quality',
+      icon: '🔍',
+      label: 'Quality Review',
+      badge: qualityBadgeLabel || undefined,
+      badgeClass: qualityBadgeClass
+    },
+    {
       id: 'breakdown',
       icon: '📄',
       label: 'Code Breakdown',
@@ -232,13 +239,6 @@ export default function Home() {
       label: 'Execution Path',
       badge: nodes.length > 0 ? `${nodes.length} nodes` : undefined,
       badgeClass: 'tab-badge-neutral'
-    },
-    {
-      id: 'quality',
-      icon: '🔍',
-      label: 'Quality Review',
-      badge: qualityBadgeLabel || undefined,
-      badgeClass: qualityBadgeClass
     },
   ];
 
@@ -317,30 +317,44 @@ export default function Home() {
             </div>
 
             {/* Code Breakdown tab */}
-            <div className="tab-content" style={{ display: activeTab === 'breakdown' ? 'flex' : 'none' }}>
-              <ExplanationPanel
-                explanation={explanation}
-                summary={summary}
-                complexity={complexity}
-                isLoading={isLoading}
-              />
+            <div className="tab-content" style={{ display: activeTab === 'breakdown' ? 'flex' : 'none', flexDirection: 'column' }}>
+              {isRepoMode && !activeFilePath ? (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '24px' }}>
+                  Click a file in the panel on the left to see its code breakdown
+                </div>
+              ) : (
+                <ExplanationPanel
+                  explanation={explanation}
+                  summary={summary}
+                  complexity={complexity}
+                  isLoading={isLoading}
+                />
+              )}
             </div>
 
             {/* Execution Path tab */}
-            <div className="tab-content" style={{ display: activeTab === 'flow' ? 'flex' : 'none', padding: '16px' }}>
-              <div className="section-heading" style={{ marginBottom: '8px' }}>Interactive Execution Path</div>
-              <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 12px' }}>
-                Drag nodes • Scroll to zoom • Hit <strong style={{ color: '#38bdf8' }}>▶ Play Execution</strong> in the canvas panel to animate
-              </p>
-              <div style={{ flex: 1, minHeight: '460px' }}>
-                {isLoading ? (
-                  <div style={{ height: '460px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
-                    Generating flow diagram...
+            <div className="tab-content" style={{ display: activeTab === 'flow' ? 'flex' : 'none', padding: '16px', flexDirection: 'column' }}>
+              {isRepoMode && !activeFilePath ? (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '24px' }}>
+                  Click a file in the panel on the left to see its execution path
+                </div>
+              ) : (
+                <>
+                  <div className="section-heading" style={{ marginBottom: '8px' }}>Interactive Execution Path</div>
+                  <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 12px' }}>
+                    Drag nodes • Scroll to zoom • Hit <strong style={{ color: '#38bdf8' }}>▶ Play Execution</strong> in the canvas panel to animate
+                  </p>
+                  <div style={{ flex: 1, minHeight: '460px' }}>
+                    {isLoading ? (
+                      <div style={{ height: '460px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        Generating flow diagram...
+                      </div>
+                    ) : (
+                      <ReactFlowDiagram nodes={nodes} edges={edges} />
+                    )}
                   </div>
-                ) : (
-                  <ReactFlowDiagram nodes={nodes} edges={edges} />
-                )}
-              </div>
+                </>
+              )}
             </div>
 
             {/* Quality Review tab — unified: single file quality + repo health (if from repo) */}
