@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { CodeQuality } from '@/lib/types';
+import { CodeQuality, RepoHealth } from '@/lib/types';
+import RepoHealthSection from '@/components/RepoHealthSection';
 
 export interface RepoFileResult {
   path: string;
@@ -16,6 +17,7 @@ interface Props {
   noAnalyzableFiles?: boolean;
   skippedSummary?: string;
   isTruncated?: boolean;
+  repoHealth?: RepoHealth;
 }
 
 function severityColor(s: 'error' | 'warning' | 'info') {
@@ -31,7 +33,7 @@ function ScorePill({ score }: { score: number }) {
   );
 }
 
-export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFiles, skippedSummary, isTruncated }: Props) {
+export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFiles, skippedSummary, isTruncated, repoHealth }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Empty state — repo has no analyzable source files
@@ -46,6 +48,9 @@ export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFil
             <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px' }}>Repository scanned</div>
           </div>
         </div>
+
+        {/* Repo health even for non-code repos */}
+        {repoHealth && <RepoHealthSection health={repoHealth} />}
 
         {/* No analyzable files notice */}
         <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: '10px', padding: '16px 20px' }}>
@@ -131,6 +136,9 @@ export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFil
           </span>
         )}
       </div>
+
+      {/* Repo Health section */}
+      {repoHealth && <RepoHealthSection health={repoHealth} />}
 
       {/* File list — worst scored first */}
       <div>

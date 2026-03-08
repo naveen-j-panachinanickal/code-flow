@@ -29,6 +29,7 @@ export default function Home() {
   // Repo scan state
   const [repoResults, setRepoResults] = useState<RepoFileResult[]>([]);
   const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; noAnalyzableFiles?: boolean; skippedSummary?: string; isTruncated?: boolean } | null>(null);
+  const [repoHealth, setRepoHealth] = useState<any>(null);
   const [isRepoMode, setIsRepoMode] = useState(false);
 
   const handleExplain = async (codeStr: string, selectedLanguage: string) => {
@@ -41,6 +42,7 @@ export default function Home() {
     setCodeQuality(undefined);
     setRepoResults([]);
     setRepoInfo(null);
+    setRepoHealth(null);
     setIsRepoMode(false);
 
     try {
@@ -86,6 +88,7 @@ export default function Home() {
     setIsRepoMode(true);
     setRepoResults([]);
     setRepoInfo({ owner, repo, noAnalyzableFiles: repoData.noAnalyzableFiles, skippedSummary: repoData.skippedSummary, isTruncated: repoData.isTruncated });
+    setRepoHealth(repoData.repoHealth || null);
     setExplanation('');
     setNodes([]);
     setEdges([]);
@@ -258,6 +261,7 @@ export default function Home() {
                   noAnalyzableFiles={repoInfo.noAnalyzableFiles}
                   skippedSummary={repoInfo.skippedSummary}
                   isTruncated={repoInfo.isTruncated}
+                  repoHealth={repoHealth}
                 />
               ) : (
                 <>

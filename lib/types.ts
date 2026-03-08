@@ -50,3 +50,6 @@ export interface ExplanationResult {
   };
   codeQuality: CodeQuality;
 }
+
+// Re-export RepoHealth so components can import from one place
+export type { RepoHealth } from './repo-health';

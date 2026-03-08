@@ -16,6 +16,7 @@ export interface RepoFile {
 
 export default function GithubInput({ onFileLoaded, onRepoLoaded, isLoading }: Props) {
   const [url, setUrl] = useState('');
+  const [branch, setBranch] = useState('');
   const [error, setError] = useState('');
   const [fetching, setFetching] = useState(false);
 
@@ -30,7 +31,7 @@ export default function GithubInput({ onFileLoaded, onRepoLoaded, isLoading }: P
       const res = await fetch('/api/github', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() })
+        body: JSON.stringify({ url: url.trim(), branch: branch.trim() || undefined })
       });
       const data = await res.json();
 
@@ -114,6 +115,33 @@ export default function GithubInput({ onFileLoaded, onRepoLoaded, isLoading }: P
         </button>
       </div>
 
+      {/* Branch selector — only for repo URLs */}
+      {!isFileUrl && url.trim() && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '6px' }}>
+          <span style={{ fontSize: '0.7rem', color: '#475569', flexShrink: 0 }}>⎇ Branch:</span>
+          <input
+            type="text"
+            value={branch}
+            onChange={e => setBranch(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="default branch"
+            style={{
+              flex: 1,
+              background: 'rgba(15,23,42,0.6)',
+              border: '1px solid rgba(255,255,255,0.07)',
+              borderRadius: '6px',
+              padding: '5px 10px',
+              color: '#94a3b8',
+              fontSize: '0.75rem',
+              fontFamily: 'var(--font-mono)',
+              outline: 'none',
+            }}
+            onFocus={e => e.target.style.borderColor = 'rgba(56,189,248,0.3)'}
+            onBlur={e => e.target.style.borderColor = 'rgba(255,255,255,0.07)'}
+          />
+        </div>
+      )}
+
       {error && (
         <div style={{ marginTop: '6px', fontSize: '0.75rem', color: '#f87171', display: 'flex', alignItems: 'flex-start', gap: '4px' }}>
           <span>⚠️</span><span>{error}</span>
@@ -123,7 +151,7 @@ export default function GithubInput({ onFileLoaded, onRepoLoaded, isLoading }: P
       <div style={{ marginTop: '6px', fontSize: '0.68rem', color: '#334155', lineHeight: 1.5 }}>
         {isFileUrl
           ? '📄 Single file — will load into editor & analyze'
-          : '📦 Repo scan — analyzes up to 20 code files (add GITHUB_TOKEN to .env.local for private repos)'
+          : `📦 Repo scan — analyzes up to 20 code files • branch: ${branch.trim() || 'default'}`
         }
       </div>
     </div>

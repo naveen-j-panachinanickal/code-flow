@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSession } from '@/lib/session';
+import { analyzeRepoHealth } from '@/lib/repo-health';
 
 // Detect language from file extension
 function detectLanguage(filename: string): string {
@@ -70,7 +71,7 @@ const SKIP_DIRS = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { url, mode } = await req.json();
+    const { url, mode, branch: branchOverride } = await req.json();
 
     if (!url) {
       return NextResponse.json({ error: 'GitHub URL is required' }, { status: 400 });
@@ -118,7 +119,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: `Cannot access repo '${owner}/${repo}'. Make sure it's public or your GITHUB_TOKEN has access. Status: ${repoRes.status}` }, { status: 400 });
     }
     const repoData = await repoRes.json();
-    const defaultBranch = repoData.default_branch || 'main';
+    const defaultBranch = branchOverride?.trim() || repoData.default_branch || 'main';
 
     // Get the file tree
     const treeRes = await fetch(
@@ -196,6 +197,46 @@ export async function POST(req: NextRequest) {
 
     const validFiles = fileResults.filter(Boolean);
 
+    // ── Repo Health Analysis ───────────────────────────────────────────────
+    // Find health-relevant files in the tree (docs, configs, CI, etc.)
+    const HEALTH_FILES = [
+      'readme.md', 'readme.txt', 'readme.rst',
+      'license', 'license.md', 'license.txt',
+      'contributing.md', 'contributing.txt',
+      'package.json', 'pom.xml',
+      'build.gradle', 'build.gradle.kts',
+      'cargo.toml', 'go.mod',
+      'requirements.txt', 'pyproject.toml', 'setup.py',
+      '.gitignore', 'makefile',
+    ];
+
+    const healthItems = allItems.filter((item: any) => {
+      if (item.type !== 'blob') return false;
+      const filename = item.path.split('/').pop()?.toLowerCase() || '';
+      // exact filename matches
+      if (HEALTH_FILES.includes(filename)) return true;
+      // CI/CD configs
+      if (item.path.includes('.github/workflows/')) return true;
+      if (item.path.includes('.circleci/') || item.path.endsWith('.travis.yml') || item.path.endsWith('.gitlab-ci.yml')) return true;
+      return false;
+    }).slice(0, 15); // limit
+
+    // Fetch health file contents
+    const healthContents: Record<string, string> = {};
+    await Promise.all(healthItems.map(async (item: any) => {
+      try {
+        const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`;
+        const res = await fetch(rawUrl, { headers: authHeaders });
+        if (res.ok) {
+          const text = await res.text();
+          if (text.length < 100_000) healthContents[item.path] = text;
+        }
+      } catch { /* skip */ }
+    }));
+
+    const allPaths = allItems.filter((i: any) => i.type === 'blob').map((i: any) => i.path as string);
+    const repoHealth = analyzeRepoHealth(allPaths, healthContents);
+
     // Count skipped (non-analyzable) files for the panel footer
     const skippedExtCounts: Record<string, number> = {};
     for (const item of allItems) {
@@ -218,6 +259,7 @@ export async function POST(req: NextRequest) {
       branch: defaultBranch,
       totalFiles: validFiles.length,
       files: validFiles,
+      repoHealth,
       skippedSummary: skippedSummary || null,
       isTruncated
     });
