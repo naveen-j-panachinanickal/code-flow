@@ -5,6 +5,8 @@ import CodeEditor from '@/components/CodeEditor';
 import ExplanationPanel from '@/components/ExplanationPanel';
 import ReactFlowDiagram from '@/components/ReactFlowDiagram';
 import CodeQualityPanel from '@/components/CodeQualityPanel';
+import GithubInput, { RepoFile } from '@/components/GithubInput';
+import RepoQualityPanel, { RepoFileResult } from '@/components/RepoQualityPanel';
 import HistoryPanel, { HistoryItem } from '@/components/HistoryPanel';
 import './page.css';
 
@@ -23,7 +25,12 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<Tab>('breakdown');
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
 
-  const handleExplain = async (code: string, selectedLanguage: string) => {
+  // Repo scan state
+  const [repoResults, setRepoResults] = useState<RepoFileResult[]>([]);
+  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string } | null>(null);
+  const [isRepoMode, setIsRepoMode] = useState(false);
+
+  const handleExplain = async (codeStr: string, selectedLanguage: string) => {
     setIsLoading(true);
     setExplanation('');
     setSummary('');
@@ -31,12 +38,15 @@ export default function Home() {
     setEdges([]);
     setComplexity(undefined);
     setCodeQuality(undefined);
+    setRepoResults([]);
+    setRepoInfo(null);
+    setIsRepoMode(false);
 
     try {
       const response = await fetch('/api/explain', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code, language: selectedLanguage })
+        body: JSON.stringify({ code: codeStr, language: selectedLanguage })
       });
 
       if (!response.ok) throw new Error('Failed to fetch explanation');
@@ -50,11 +60,60 @@ export default function Home() {
       setCodeQuality(data.codeQuality);
 
       if (data.summary) {
-        setHistoryTrigger({ code, summary: data.summary });
+        setHistoryTrigger({ code: codeStr, summary: data.summary });
       }
     } catch (error) {
       console.error('Error explaining code:', error);
       setExplanation('An error occurred while generating the explanation. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // GitHub single-file handler: load into editor and auto-analyze
+  const handleFileLoaded = (fileCode: string, fileLang: string, filename: string) => {
+    setCode(fileCode);
+    setLanguage(fileLang);
+    setIsRepoMode(false);
+    handleExplain(fileCode, fileLang);
+    setActiveTab('breakdown');
+  };
+
+  // GitHub repo handler: run quality analysis on each file, then show results
+  const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string) => {
+    setIsLoading(true);
+    setIsRepoMode(true);
+    setRepoResults([]);
+    setRepoInfo({ owner, repo });
+    setExplanation('');
+    setNodes([]);
+    setEdges([]);
+    setComplexity(undefined);
+    setCodeQuality(undefined);
+    setActiveTab('quality');
+
+    try {
+      // Analyze each file using the /api/explain endpoint
+      const results = await Promise.all(
+        files.map(async (file) => {
+          try {
+            const res = await fetch('/api/explain', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code: file.code, language: file.language })
+            });
+            const data = await res.json();
+            return { path: file.path, language: file.language, codeQuality: data.codeQuality };
+          } catch {
+            return null;
+          }
+        })
+      );
+
+      const validResults = results.filter((r): r is RepoFileResult => r !== null && !!r.codeQuality);
+      setRepoResults(validResults);
+    } catch (e) {
+      console.error('Repo analysis error:', e);
     } finally {
       setIsLoading(false);
     }
@@ -67,16 +126,16 @@ export default function Home() {
   };
 
   // Derive badge values
-  const errorCount = codeQuality?.smells?.filter((s: any) => s.severity === 'error').length ?? 0;
-  const warnCount  = codeQuality?.smells?.filter((s: any) => s.severity === 'warning').length ?? 0;
-  const qualityBadgeClass =
-    !codeQuality ? 'tab-badge-neutral' :
-    errorCount > 0 ? 'tab-badge-error' :
-    warnCount  > 0 ? 'tab-badge-warn'  : 'tab-badge-ok';
-  const qualityBadgeLabel =
-    !codeQuality ? '' :
-    errorCount > 0 ? `${errorCount}` :
-    warnCount  > 0 ? `${warnCount}`  : '✓';
+  const errorCount = isRepoMode
+    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter((s: any) => s.severity === 'error').length, 0)
+    : (codeQuality?.smells?.filter((s: any) => s.severity === 'error').length ?? 0);
+  const warnCount = isRepoMode
+    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter((s: any) => s.severity === 'warning').length, 0)
+    : (codeQuality?.smells?.filter((s: any) => s.severity === 'warning').length ?? 0);
+  const hasQualityData = isRepoMode ? repoResults.length > 0 : !!codeQuality;
+
+  const qualityBadgeClass = !hasQualityData ? 'tab-badge-neutral' : errorCount > 0 ? 'tab-badge-error' : warnCount > 0 ? 'tab-badge-warn' : 'tab-badge-ok';
+  const qualityBadgeLabel = !hasQualityData ? '' : isRepoMode ? `${repoResults.length} files` : errorCount > 0 ? `${errorCount}` : warnCount > 0 ? `${warnCount}` : '✓';
 
   const tabs: { id: Tab; icon: string; label: string; badge?: string; badgeClass?: string }[] = [
     {
@@ -119,7 +178,7 @@ export default function Home() {
       <main className="main-content">
         <div className="grid-layout">
 
-          {/* Left — sticky code editor */}
+          {/* Left — sticky code editor + GitHub input */}
           <div className="col-left">
             <CodeEditor
               code={code}
@@ -127,6 +186,11 @@ export default function Home() {
               language={language}
               setLanguage={setLanguage}
               onExplain={(c, l) => handleExplain(c, l)}
+              isLoading={isLoading}
+            />
+            <GithubInput
+              onFileLoaded={handleFileLoaded}
+              onRepoLoaded={handleRepoLoaded}
               isLoading={isLoading}
             />
           </div>
@@ -151,7 +215,7 @@ export default function Home() {
               ))}
             </div>
 
-            {/* Tab content — only the active tab is visible, others are CSS-hidden so React Flow stays mounted */}
+            {/* Code Breakdown tab */}
             <div className="tab-content" style={{ display: activeTab === 'breakdown' ? 'flex' : 'none' }}>
               <ExplanationPanel
                 explanation={explanation}
@@ -161,6 +225,7 @@ export default function Home() {
               />
             </div>
 
+            {/* Execution Path tab */}
             <div className="tab-content" style={{ display: activeTab === 'flow' ? 'flex' : 'none', padding: '16px' }}>
               <div className="section-heading" style={{ marginBottom: '8px' }}>Interactive Execution Path</div>
               <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 12px' }}>
@@ -177,12 +242,27 @@ export default function Home() {
               </div>
             </div>
 
+            {/* Quality Review tab — single file OR repo mode */}
             <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none' }}>
-              <div className="section-heading" style={{ marginBottom: '8px' }}>Code Quality Review</div>
-              <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 16px' }}>
-                Static analysis • Code smell detection • Best practice suggestions
-              </p>
-              <CodeQualityPanel codeQuality={codeQuality} isLoading={isLoading} />
+              {isLoading ? (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '24px' }}>
+                  {isRepoMode ? `Analyzing repo files...` : 'Analyzing code quality...'}
+                </div>
+              ) : isRepoMode && repoInfo ? (
+                <RepoQualityPanel
+                  owner={repoInfo.owner}
+                  repo={repoInfo.repo}
+                  results={repoResults}
+                />
+              ) : (
+                <>
+                  <div className="section-heading" style={{ marginBottom: '8px' }}>Code Quality Review</div>
+                  <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 16px' }}>
+                    Static analysis • Code smell detection • Best practice suggestions
+                  </p>
+                  <CodeQualityPanel codeQuality={codeQuality} isLoading={isLoading} />
+                </>
+              )}
             </div>
 
           </div>

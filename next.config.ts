@@ -1,7 +1,11 @@
 import type { NextConfig } from "next";
+import path from "path";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["web-tree-sitter"]
+  serverExternalPackages: ["web-tree-sitter"],
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
 };
 
 export default nextConfig;
