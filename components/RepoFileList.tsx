@@ -11,6 +11,7 @@ interface Props {
   repoHealth: RepoHealth | null;
   activeFilePath: string | null;
   onFileSelect: (file: RepoFileResult) => void;
+  onHeaderClick?: () => void;
 }
 
 function ScorePill({ score }: { score: number }) {
@@ -22,7 +23,7 @@ function ScorePill({ score }: { score: number }) {
   );
 }
 
-export default function RepoFileList({ owner, repo, branch, files, repoHealth, activeFilePath, onFileSelect }: Props) {
+export default function RepoFileList({ owner, repo, branch, files, repoHealth, activeFilePath, onFileSelect, onHeaderClick }: Props) {
   const healthColor = repoHealth
     ? repoHealth.score >= 75 ? '#22c55e' : repoHealth.score >= 50 ? '#f59e0b' : '#ef4444'
     : '#475569';
@@ -31,7 +32,15 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
       {/* Repo header */}
-      <div style={{ padding: '10px 14px', background: 'rgba(15,23,42,0.7)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0 }}>
+      <div 
+        onClick={onHeaderClick}
+        style={{ 
+          padding: '10px 14px', background: 'rgba(15,23,42,0.7)', borderBottom: '1px solid rgba(255,255,255,0.06)', flexShrink: 0,
+          cursor: onHeaderClick ? 'pointer' : 'default', transition: 'background 0.15s'
+        }}
+        onMouseEnter={e => { if (onHeaderClick) e.currentTarget.style.background = 'rgba(30,41,59,0.8)'; }}
+        onMouseLeave={e => { if (onHeaderClick) e.currentTarget.style.background = 'rgba(15,23,42,0.7)'; }}
+      >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <div style={{ fontSize: '0.82rem', fontWeight: 700, color: '#f1f5f9' }}>

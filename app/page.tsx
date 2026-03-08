@@ -279,6 +279,7 @@ export default function Home() {
               activeFilePath={activeFilePath}
               onFileSelect={handleFileSelectFromBrowser}
               onRepoReset={handleRepoReset}
+              onRepoHeaderClick={() => setActiveFilePath(null)}
               historyItems={historyItems}
               onHistorySelect={handleHistorySelect}
             />
