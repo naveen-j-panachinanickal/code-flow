@@ -373,8 +373,8 @@ export default function Home() {
 
             {/* Quality Review tab — unified: single file quality + repo health (if from repo) */}
             <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none', flexDirection: 'column', gap: '16px', padding: '16px', overflowY: 'auto' }}>
-              {/* Repo health section always shown when in repo mode */}
-              {isRepoMode && repoHealth && (
+              {/* Repo health section only shown when no file is selected */}
+              {isRepoMode && repoHealth && !activeFilePath && (
                 <RepoHealthSection health={repoHealth} />
               )}
               {/* Repo info banner when no file selected yet */}
