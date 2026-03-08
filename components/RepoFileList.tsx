@@ -28,6 +28,14 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
     ? repoHealth.score >= 75 ? '#22c55e' : repoHealth.score >= 50 ? '#f59e0b' : '#ef4444'
     : '#475569';
 
+  const avgQualityScore = files.length > 0
+    ? Math.round(files.reduce((acc, f) => acc + f.codeQuality.overallScore, 0) / files.length)
+    : null;
+    
+  const qualityColor = avgQualityScore !== null
+    ? avgQualityScore >= 80 ? '#22c55e' : avgQualityScore >= 55 ? '#f59e0b' : '#ef4444'
+    : '#475569';
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, overflow: 'hidden' }}>
 
@@ -53,12 +61,20 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
               {branch} · {files.length} file{files.length !== 1 ? 's' : ''} scanned
             </div>
           </div>
-          {repoHealth && (
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1rem', fontWeight: 800, color: healthColor }}>{repoHealth.score}</div>
-              <div style={{ fontSize: '0.6rem', color: healthColor, fontWeight: 600 }}>health</div>
+            <div style={{ display: 'flex', gap: '16px', textAlign: 'right' }}>
+              {avgQualityScore !== null && (
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: qualityColor }}>{avgQualityScore}</div>
+                  <div style={{ fontSize: '0.6rem', color: qualityColor, fontWeight: 600 }}>quality</div>
+                </div>
+              )}
+              {repoHealth && (
+                <div>
+                  <div style={{ fontSize: '1rem', fontWeight: 800, color: healthColor }}>{repoHealth.score}</div>
+                  <div style={{ fontSize: '0.6rem', color: healthColor, fontWeight: 600 }}>health</div>
+                </div>
+              )}
             </div>
-          )}
         </div>
       </div>
 
