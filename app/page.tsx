@@ -198,7 +198,19 @@ export default function Home() {
     setActiveTab('quality');
   };
 
-  // Reset repo state
+  // File browser header click: return to repo overview
+  const handleRepoOverviewClick = () => {
+    setActiveFilePath(null);
+    setCodeQuality(undefined);
+    setExplanation('');
+    setSummary('');
+    setNodes([]);
+    setEdges([]);
+    setComplexity(undefined);
+    setActiveTab('quality');
+  };
+
+  // Reset repo state (scan new repo)
   const handleRepoReset = () => {
     setIsRepoMode(false);
     setRepoResults([]);
@@ -280,7 +292,7 @@ export default function Home() {
               activeFilePath={activeFilePath}
               onFileSelect={handleFileSelectFromBrowser}
               onRepoReset={handleRepoReset}
-              onRepoHeaderClick={() => setActiveFilePath(null)}
+              onRepoHeaderClick={handleRepoOverviewClick}
               historyItems={historyItems}
               onHistorySelect={handleHistorySelect}
             />
