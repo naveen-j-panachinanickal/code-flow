@@ -7,6 +7,7 @@ import ReactFlowDiagram from '@/components/ReactFlowDiagram';
 import CodeQualityPanel from '@/components/CodeQualityPanel';
 import GithubInput, { RepoFile } from '@/components/GithubInput';
 import RepoQualityPanel, { RepoFileResult } from '@/components/RepoQualityPanel';
+import AuthButton from '@/components/AuthButton';
 import HistoryPanel, { HistoryItem } from '@/components/HistoryPanel';
 import './page.css';
 
@@ -27,7 +28,7 @@ export default function Home() {
 
   // Repo scan state
   const [repoResults, setRepoResults] = useState<RepoFileResult[]>([]);
-  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string } | null>(null);
+  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; noAnalyzableFiles?: boolean; skippedSummary?: string; isTruncated?: boolean } | null>(null);
   const [isRepoMode, setIsRepoMode] = useState(false);
 
   const handleExplain = async (codeStr: string, selectedLanguage: string) => {
@@ -80,11 +81,11 @@ export default function Home() {
   };
 
   // GitHub repo handler: run quality analysis on each file, then show results
-  const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string) => {
+  const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string, repoData: any) => {
     setIsLoading(true);
     setIsRepoMode(true);
     setRepoResults([]);
-    setRepoInfo({ owner, repo });
+    setRepoInfo({ owner, repo, noAnalyzableFiles: repoData.noAnalyzableFiles, skippedSummary: repoData.skippedSummary, isTruncated: repoData.isTruncated });
     setExplanation('');
     setNodes([]);
     setEdges([]);
@@ -173,6 +174,7 @@ export default function Home() {
             Code Made Clear
           </p>
         </div>
+        <AuthButton />
       </header>
 
       <main className="main-content">
@@ -253,6 +255,9 @@ export default function Home() {
                   owner={repoInfo.owner}
                   repo={repoInfo.repo}
                   results={repoResults}
+                  noAnalyzableFiles={repoInfo.noAnalyzableFiles}
+                  skippedSummary={repoInfo.skippedSummary}
+                  isTruncated={repoInfo.isTruncated}
                 />
               ) : (
                 <>

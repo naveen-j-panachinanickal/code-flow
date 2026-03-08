@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getSession } from '@/lib/session';
 
 // Detect language from file extension
 function detectLanguage(filename: string): string {
@@ -40,7 +41,32 @@ function parseRepoUrl(githubUrl: string): { owner: string; repo: string } | null
 }
 
 // Analyzable code extensions
-const ANALYZABLE_EXTENSIONS = new Set(['js', 'jsx', 'ts', 'tsx', 'py', 'java', 'rb', 'go', 'rs', 'cpp', 'c', 'cs', 'php', 'swift', 'kt', 'mjs', 'cjs']);
+const ANALYZABLE_EXTENSIONS = new Set([
+  'js', 'jsx', 'mjs', 'cjs',
+  'ts', 'tsx',
+  'py', 'pyw',
+  'java',
+  'kt', 'kts',
+  'rb',
+  'go',
+  'rs',
+  'cpp', 'cc', 'cxx', 'c', 'h', 'hpp',
+  'cs',
+  'php',
+  'swift',
+  'scala',
+  'dart',
+  'vue', 'svelte',
+]);
+
+// Directories to always skip
+const SKIP_DIRS = [
+  'node_modules/', '.next/', '.nuxt/', 'dist/', '.git/',
+  'vendor/', '__pycache__/', 'coverage/', '.gradle/',
+  'target/', // Java Maven output
+  '.idea/', '.vscode/',
+  'Pods/', // iOS CocoaPods
+];
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +76,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'GitHub URL is required' }, { status: 400 });
     }
 
-    const token = process.env.GITHUB_TOKEN;
+    // Prefer the logged-in user's session token; fall back to server env token
+    const session = await getSession();
+    const token = session?.accessToken || process.env.GITHUB_TOKEN;
     const authHeaders: Record<string, string> = token
       ? { Authorization: `Bearer ${token}` }
       : {};
@@ -102,21 +130,52 @@ export async function POST(req: NextRequest) {
     }
     const treeData = await treeRes.json();
 
-    // Filter to analyzable files, skip node_modules / build dirs, cap at 20 files
-    const files = (treeData.tree as any[])
+    const allItems: any[] = treeData.tree || [];
+    const isTruncated: boolean = treeData.truncated === true;
+
+    // Count what's in the repo for better error messages
+    const allExtensions = new Set<string>();
+
+    // Filter to analyzable files
+    const files = allItems
       .filter((item: any) => {
         if (item.type !== 'blob') return false;
-        const ext = item.path.split('.').pop()?.toLowerCase() || '';
+        const ext = (item.path.split('.').pop() || '').toLowerCase();
+        allExtensions.add(ext);
         if (!ANALYZABLE_EXTENSIONS.has(ext)) return false;
-        const skipDirs = ['node_modules', '.next', 'dist', 'build', '.git', 'vendor', '__pycache__', 'coverage'];
-        if (skipDirs.some(d => item.path.includes(`${d}/`))) return false;
+        if (SKIP_DIRS.some(d => item.path.includes(d))) return false;
         return true;
       })
-      .slice(0, 20); // limit to 20 files
+      .slice(0, 20);
 
     if (files.length === 0) {
-      return NextResponse.json({ error: 'No analyzable code files found in this repository (JS/TS/Python/Java).' }, { status: 400 });
+      // Count files by extension for a helpful summary
+      const extCounts: Record<string, number> = {};
+      for (const item of allItems) {
+        if (item.type !== 'blob') continue;
+        const ext = (item.path.split('.').pop() || 'no-ext').toLowerCase();
+        if (SKIP_DIRS.some(d => item.path.includes(d))) continue;
+        extCounts[ext] = (extCounts[ext] || 0) + 1;
+      }
+      const skippedSummary = Object.entries(extCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([ext, count]) => `${count} .${ext}`)
+        .join(', ');
+
+      return NextResponse.json({
+        mode: 'repo',
+        owner,
+        repo,
+        branch: defaultBranch,
+        totalFiles: 0,
+        files: [],
+        noAnalyzableFiles: true,
+        skippedSummary: skippedSummary || 'No files found',
+        isTruncated
+      });
     }
+
 
     // Fetch content for each file
     const fileResults = await Promise.all(
@@ -137,14 +196,32 @@ export async function POST(req: NextRequest) {
 
     const validFiles = fileResults.filter(Boolean);
 
+    // Count skipped (non-analyzable) files for the panel footer
+    const skippedExtCounts: Record<string, number> = {};
+    for (const item of allItems) {
+      if (item.type !== 'blob') continue;
+      const ext = (item.path.split('.').pop() || 'no-ext').toLowerCase();
+      if (SKIP_DIRS.some(d => item.path.includes(d))) continue;
+      if (ANALYZABLE_EXTENSIONS.has(ext)) continue; // already analyzed
+      skippedExtCounts[ext] = (skippedExtCounts[ext] || 0) + 1;
+    }
+    const skippedSummary = Object.entries(skippedExtCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([ext, count]) => `${count} .${ext}`)
+      .join(', ');
+
     return NextResponse.json({
       mode: 'repo',
       owner,
       repo,
       branch: defaultBranch,
       totalFiles: validFiles.length,
-      files: validFiles
+      files: validFiles,
+      skippedSummary: skippedSummary || null,
+      isTruncated
     });
+
 
   } catch (error: any) {
     console.error('GitHub API route error:', error);
