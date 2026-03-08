@@ -1,14 +1,14 @@
 'use client';
 
-import { useState } from 'react';
-import CodeEditor from '@/components/CodeEditor';
+import { useState, useEffect } from 'react';
 import ExplanationPanel from '@/components/ExplanationPanel';
 import ReactFlowDiagram from '@/components/ReactFlowDiagram';
 import CodeQualityPanel from '@/components/CodeQualityPanel';
-import GithubInput, { RepoFile } from '@/components/GithubInput';
-import RepoQualityPanel, { RepoFileResult } from '@/components/RepoQualityPanel';
+import { RepoFileResult } from '@/components/RepoQualityPanel';
+import { RepoFile } from '@/components/GithubInput';
+import RepoHealthSection from '@/components/RepoHealthSection';
 import AuthButton from '@/components/AuthButton';
-import HistoryPanel, { HistoryItem } from '@/components/HistoryPanel';
+import SourceSelector, { HistoryItem } from '@/components/SourceSelector';
 import './page.css';
 
 type Tab = 'breakdown' | 'flow' | 'quality';
@@ -24,14 +24,39 @@ export default function Home() {
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
   const [codeQuality, setCodeQuality] = useState<any>(undefined);
   const [activeTab, setActiveTab] = useState<Tab>('breakdown');
+  // historyTrigger used to save analysis to history
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
+  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([]);
 
   // Repo scan state
   const [repoResults, setRepoResults] = useState<RepoFileResult[]>([]);
-  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; noAnalyzableFiles?: boolean; skippedSummary?: string; isTruncated?: boolean } | null>(null);
+  const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; branch: string; noAnalyzableFiles?: boolean; skippedSummary?: string } | null>(null);
   const [repoHealth, setRepoHealth] = useState<any>(null);
   const [isRepoMode, setIsRepoMode] = useState(false);
+  const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanTotal, setScanTotal] = useState(0);
 
+
+  // Load history from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('vibe_code_history');
+    if (saved) { try { setHistoryItems(JSON.parse(saved)); } catch {} }
+  }, []);
+
+  // Save history when a new explain completes
+  useEffect(() => {
+    if (!historyTrigger) return;
+    const newItem: HistoryItem = { id: Math.random().toString(36).substring(7), timestamp: Date.now(), codeSnippet: historyTrigger.code, summary: historyTrigger.summary };
+    setHistoryItems(prev => {
+      if (prev.some(i => i.codeSnippet === newItem.codeSnippet)) return prev;
+      const updated = [newItem, ...prev].slice(0, 10);
+      localStorage.setItem('vibe_code_history', JSON.stringify(updated));
+      return updated;
+    });
+  }, [historyTrigger]);
+
+  // handleExplain: called from Paste Code Explain button — clears repo state
   const handleExplain = async (codeStr: string, selectedLanguage: string) => {
     setIsLoading(true);
     setExplanation('');
@@ -40,10 +65,12 @@ export default function Home() {
     setEdges([]);
     setComplexity(undefined);
     setCodeQuality(undefined);
+    // Entering single-file mode — clear repo state
+    setIsRepoMode(false);
     setRepoResults([]);
     setRepoInfo(null);
     setRepoHealth(null);
-    setIsRepoMode(false);
+    setActiveFilePath(null);
 
     try {
       const response = await fetch('/api/explain', {
@@ -51,9 +78,7 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code: codeStr, language: selectedLanguage })
       });
-
       if (!response.ok) throw new Error('Failed to fetch explanation');
-
       const data = await response.json();
       setExplanation(data.explanation || '');
       setSummary(data.summary || '');
@@ -61,10 +86,7 @@ export default function Home() {
       setEdges(data.edges || []);
       setComplexity(data.complexity);
       setCodeQuality(data.codeQuality);
-
-      if (data.summary) {
-        setHistoryTrigger({ code: codeStr, summary: data.summary });
-      }
+      if (data.summary) setHistoryTrigger({ code: codeStr, summary: data.summary });
     } catch (error) {
       console.error('Error explaining code:', error);
       setExplanation('An error occurred while generating the explanation. Please try again.');
@@ -74,30 +96,34 @@ export default function Home() {
   };
 
   // GitHub single-file handler: load into editor and auto-analyze
-  const handleFileLoaded = (fileCode: string, fileLang: string, filename: string) => {
+  const handleFileLoaded = (fileCode: string, fileLang: string) => {
     setCode(fileCode);
     setLanguage(fileLang);
-    setIsRepoMode(false);
     handleExplain(fileCode, fileLang);
     setActiveTab('breakdown');
   };
 
-  // GitHub repo handler: run quality analysis on each file, then show results
+  // GitHub repo handler: scan files, show file browser on left
   const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string, repoData: any) => {
     setIsLoading(true);
     setIsRepoMode(true);
+    setActiveFilePath(null);
     setRepoResults([]);
-    setRepoInfo({ owner, repo, noAnalyzableFiles: repoData.noAnalyzableFiles, skippedSummary: repoData.skippedSummary, isTruncated: repoData.isTruncated });
+    setRepoInfo({ owner, repo, branch: repoData.branch || 'default', noAnalyzableFiles: repoData.noAnalyzableFiles, skippedSummary: repoData.skippedSummary });
     setRepoHealth(repoData.repoHealth || null);
+    setScanProgress(0);
+    setScanTotal(files.length);
+    // Clear right-panel data until a file is selected
     setExplanation('');
+    setSummary('');
     setNodes([]);
     setEdges([]);
     setComplexity(undefined);
     setCodeQuality(undefined);
-    setActiveTab('quality');
 
     try {
-      // Analyze each file using the /api/explain endpoint
+      // Analyze each file using the /api/explain endpoint with progress tracking
+      let done = 0;
       const results = await Promise.all(
         files.map(async (file) => {
           try {
@@ -107,8 +133,12 @@ export default function Home() {
               body: JSON.stringify({ code: file.code, language: file.language })
             });
             const data = await res.json();
+            done++;
+            setScanProgress(done);
             return { path: file.path, language: file.language, code: file.code, codeQuality: data.codeQuality };
           } catch {
+            done++;
+            setScanProgress(done);
             return null;
           }
         })
@@ -123,23 +153,57 @@ export default function Home() {
     }
   };
 
-  const handleSelectHistory = (item: HistoryItem) => {
+  // File browser click: fetch explanation for this file KEEPING repo state visible on left
+  const handleFileSelectFromBrowser = async (file: RepoFileResult) => {
+    if (!file.code) { alert('File source not available — please re-scan the repo.'); return; }
+    setActiveFilePath(file.path);
+    setCode(file.code);
+    setLanguage(file.language);
+    // Show existing quality immediately, clear explanation until re-fetched
+    setCodeQuality(file.codeQuality);
+    setExplanation('');
+    setSummary('');
+    setNodes([]);
+    setEdges([]);
+    setComplexity(undefined);
+    setIsLoading(true);
+    setActiveTab('breakdown');
+
+    try {
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: file.code, language: file.language })
+      });
+      const data = await res.json();
+      setExplanation(data.explanation || '');
+      setSummary(data.summary || '');
+      setNodes(data.nodes || []);
+      setEdges(data.edges || []);
+      setComplexity(data.complexity);
+      setCodeQuality(data.codeQuality);
+      // repo state (repoResults, repoInfo, repoHealth, isRepoMode) stays intact
+    } catch {
+      setExplanation('An error occurred while generating the explanation.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleHistorySelect = (item: HistoryItem) => {
     setCode(item.codeSnippet);
     setLanguage('javascript');
     handleExplain(item.codeSnippet, 'javascript');
+    setActiveTab('breakdown');
   };
 
-  // Load a repo file into the editor and trigger full code breakdown
-  const handleFileSelect = (file: RepoFileResult) => {
-    if (!file.code) {
-      alert('File source not available — please re-scan the repo to enable breakdown.');
-      return;
-    }
-    setCode(file.code);
-    setLanguage(file.language);
+  // Reset repo state
+  const handleRepoReset = () => {
     setIsRepoMode(false);
-    handleExplain(file.code, file.language);
-    setActiveTab('breakdown');
+    setRepoResults([]);
+    setRepoInfo(null);
+    setRepoHealth(null);
+    setActiveFilePath(null);
   };
 
   // Derive badge values
@@ -196,27 +260,46 @@ export default function Home() {
       <main className="main-content">
         <div className="grid-layout">
 
-          {/* Left — sticky code editor + GitHub input */}
-          <div className="col-left">
-            <CodeEditor
+          {/* Left — source selector (Paste Code | From GitHub file browser) */}
+          <div className="col-left" style={{ display: 'flex', flexDirection: 'column' }}>
+            <SourceSelector
               code={code}
               setCode={setCode}
               language={language}
               setLanguage={setLanguage}
-              onExplain={(c, l) => handleExplain(c, l)}
+              onExplain={handleExplain}
               isLoading={isLoading}
-            />
-            <GithubInput
               onFileLoaded={handleFileLoaded}
               onRepoLoaded={handleRepoLoaded}
-              isLoading={isLoading}
+              repoFiles={repoResults}
+              repoOwner={repoInfo?.owner || ''}
+              repoBranch={repoInfo?.branch || ''}
+              repoRepo={repoInfo?.repo || ''}
+              repoHealth={repoHealth}
+              activeFilePath={activeFilePath}
+              onFileSelect={handleFileSelectFromBrowser}
+              onRepoReset={handleRepoReset}
+              historyItems={historyItems}
+              onHistorySelect={handleHistorySelect}
             />
+            {/* Scan progress bar */}
+            {isRepoMode && scanTotal > 0 && scanProgress < scanTotal && (
+              <div style={{ padding: '8px 16px', background: 'rgba(139,92,246,0.06)', borderTop: '1px solid rgba(139,92,246,0.15)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 600 }}>🔄 Scanning repo files...</span>
+                  <span style={{ fontSize: '0.7rem', color: '#475569' }}>{scanProgress} / {scanTotal}</span>
+                </div>
+                <div style={{ height: '4px', background: 'rgba(255,255,255,0.06)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: 'linear-gradient(90deg, #a78bfa, #38bdf8)', borderRadius: '2px', transition: 'width 0.3s ease', width: `${(scanProgress / scanTotal) * 100}%` }} />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Right — tabbed output */}
           <div className="col-right">
 
-            {/* Premium Tab Bar */}
+            {/* Tab Bar */}
             <div className="tabs-container">
               {tabs.map(tab => (
                 <button
@@ -260,43 +343,49 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Quality Review tab — single file OR repo mode */}
-            <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none' }}>
-              {isLoading ? (
+            {/* Quality Review tab — unified: single file quality + repo health (if from repo) */}
+            <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none', flexDirection: 'column', gap: '16px', padding: '16px', overflowY: 'auto' }}>
+              {/* Repo health section always shown when in repo mode */}
+              {isRepoMode && repoHealth && (
+                <RepoHealthSection health={repoHealth} />
+              )}
+              {/* Repo info banner when no file selected yet */}
+              {isRepoMode && !activeFilePath && !repoHealth && (
                 <div style={{ color: '#64748b', textAlign: 'center', padding: '24px' }}>
-                  {isRepoMode ? `Analyzing repo files...` : 'Analyzing code quality...'}
+                  {isLoading ? 'Scanning repo files...' : 'Click a file in the panel on the left to see its quality review'}
                 </div>
-              ) : isRepoMode && repoInfo ? (
-                <RepoQualityPanel
-                  owner={repoInfo.owner}
-                  repo={repoInfo.repo}
-                  results={repoResults}
-                  noAnalyzableFiles={repoInfo.noAnalyzableFiles}
-                  skippedSummary={repoInfo.skippedSummary}
-                  isTruncated={repoInfo.isTruncated}
-                  repoHealth={repoHealth}
-                  onFileSelect={handleFileSelect}
-                />
-              ) : (
-                <>
-                  <div className="section-heading" style={{ marginBottom: '8px' }}>Code Quality Review</div>
-                  <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 16px' }}>
-                    Static analysis • Code smell detection • Best practice suggestions
-                  </p>
+              )}
+              {/* Single-file quality — shown after a file is selected (paste or repo browser) */}
+              {codeQuality && (
+                <div>
+                  {isRepoMode && activeFilePath && (
+                    <div style={{ fontSize: '0.7rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '8px', fontFamily: 'var(--font-mono)' }}>
+                      📄 {activeFilePath}
+                    </div>
+                  )}
+                  {!isRepoMode && (
+                    <>
+                      <div className="section-heading" style={{ marginBottom: '8px' }}>Code Quality Review</div>
+                      <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 16px' }}>
+                        Static analysis • Code smell detection • Best practice suggestions
+                      </p>
+                    </>
+                  )}
                   <CodeQualityPanel codeQuality={codeQuality} isLoading={isLoading} />
-                </>
+                </div>
+              )}
+              {/* Empty state — no paste code and no repo file selected */}
+              {!codeQuality && !isLoading && !repoHealth && (
+                <div style={{ color: '#64748b', textAlign: 'center', padding: '24px' }}>
+                  Paste some code and click Explain, or scan a GitHub repo to see quality review.
+                </div>
               )}
             </div>
 
           </div>
         </div>
       </main>
-
-      <HistoryPanel
-        onSelectHistory={handleSelectHistory}
-        onNewSnippet={() => {}}
-        triggerSave={historyTrigger}
-      />
     </div>
   );
 }
+
