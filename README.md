@@ -1,36 +1,105 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Quality Code
 
-## Getting Started
+**Code Made Clear** — Understand your code logically, visually, and qualitatively using 100% local, AI-free Abstract Syntax Tree (AST) scanning.
 
-First, run the development server:
+![App Icon](app/icon.png)
 
+## Overview
+
+Quality Code is a zero-server, browser-first tool that analyzes codebases instantly. Instead of relying on slow, expensive, and hallucination-prone LLMs, this tool uses **Tree-Sitter** (the same technology powering GitHub's syntax highlighting) via WebAssembly to deterministically parse code into structural trees.
+
+It allows developers to:
+1. **Explain Code (Code Breakdown)**: Generates human-readable summaries of what a file does by traversing its AST.
+2. **Visualize Architecture (Execution Path)**: Maps function calls, class hierarchies, and control flow in an interactive DAG (Directed Acyclic Graph).
+3. **Analyze Health (Quality Review)**: Scans for code smells, hardcoded secrets, massive functions, and deeply nested logic.
+
+### Supported Input Methods
+- **📝 Paste Code**: Directly paste snippets of JS, TS, Python, or Java.
+- **📁 Upload Local**: Drag and drop local folders or files. Files are analyzed securely in the browser.
+- **🐙 From GitHub**: Paste a GitHub repository URL or blob link. The tool fetches the raw files via the GitHub API and analyzes them without a backend server.
+
+---
+
+## Tech Stack (The 92/100 Architecture)
+
+This project uses a bleeding-edge, highly optimized stack:
+- **Core**: Next.js 16.1 (App Router) + React 19.2
+- **Compilation**: Turbopack for lightning-fast local dev
+- **Parser Engine**: `web-tree-sitter` (WASM-based AST generation)
+- **Visuals**: `@xyflow/react` (React Flow) for interactive graph rendering + `dagre` for auto-layout
+- **Editor**: `@monaco-editor/react` (VS Code's editing engine in the browser)
+- **Deployment & Mobile**: `@ducanh2912/next-pwa` for seamless standalone desktop/mobile installation (PWA support)
+
+---
+
+## High-Level Architecture
+
+The logic is split between UI rendering (`page.tsx`) and the core WASM parser engine (`tree-sitter-parser.ts`).
+
+### 1. `app/page.tsx`
+The primary monolith container. It manages:
+- **Source Mode State**: Tracks whether the user is pasting code, uploading locally, or scanning from GitHub.
+- **File Browser**: Renders the left-hand `RepoFileList` containing the repo hierarchy, health score, and average code quality across all scanned files.
+- **Tabbed Interface**: Manages the display of the three main tools (`Quality Review`, `Code Breakdown`, `Execution Path`).
+- **History**: Uses `localStorage` to save previously analyzed snippets in a compact accordion menu.
+
+### 2. `lib/tree-sitter-parser.ts`
+The analytical brain of the app. It dynamically loads the appropriate `.wasm` binary based on the file extension (JS, TS, Python, Java). It then performs three crucial operations on the AST:
+- `generateExplanation()`: Finds variable declarations, function definitions, and classes to return a mapped object of file context.
+- `generateFlowGraph()`: Recursively walks the AST to find `call_expression` nodes. It maps caller functions to callee functions, outputting a list of nodes and edges for React Flow.
+- `analyzeCodeQuality()`: Walks the AST looking for code smells (e.g., catching `Error` without logging, `console.log` statements, deep nesting > 4 levels, or functions over 50 lines).
+
+### 3. `lib/repo-health.ts`
+When a full repository is scanned (via GitHub or local upload), it looks for specific ecosystem files:
+- Checks `package.json` for vital dependencies to infer the framework (e.g., React, Next.js, Express).
+- Checks `.github/workflows` to verify if CI/CD pipelines exist.
+- Analyzes the `README.md` length to deduce documentation quality.
+- Aggregates these metrics into a 0-100 "Repo Health Score".
+
+---
+
+## Advanced Features
+
+* **Zero-Backend Execution**: All parsing occurs *inside the browser*. The Next.js `/api/github` route only acts as an HTTP proxy to avoid CORS issues when fetching raw files, but no analysis occurs on the server.
+* **Large Repo Protection**: When analyzing a local folder or a large GitHub repo, the tool caps the analysis at 60 files and enforces a 1MB file size limit to prevent locking up the browser thread.
+* **Progressive Web App (PWA)**: Completely installable as a standalone app with custom edge-rendered graphical icons (`app/api/icon/[size]`).
+
+---
+
+## Local Development Setup
+
+### 1. Install Dependencies
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Set Up Environment Variables
+Create a `.env.local` file in the root. 
+If you want to support private GitHub repository scanning, you must create a GitHub OAuth App and provide the credentials:
+```env
+GITHUB_CLIENT_ID=your_id_here
+GITHUB_CLIENT_SECRET=your_secret_here
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+# Optional fallback token for backend rate-limit protection
+GITHUB_TOKEN=your_personal_access_token
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 3. Run the Development Server
+```bash
+npm run dev
+```
 
-## Learn More
+### 4. Build for Production
+```bash
+npm run build
+npm run start
+```
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Future Roadmap / Potential Refactors
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. **State Management**: As `page.tsx` grows, migrating the UI state (active tab, active file, nodes/edges) into a Zustand store would clean up prop-drilling.
+2. **Web Workers**: Currently, Tree-Sitter runs on the main browser thread. Moving the AST parsing into a Web Worker (`worker.ts`) would guarantee the UI never stutters when parsing massive files.
+3. **Database Integration**: Connecting to an edge database (like Vercel Postgres/Supabase) to store user search history permanently across devices, rather than relying on `localStorage`.
