@@ -107,7 +107,7 @@ export default function Home() {
               body: JSON.stringify({ code: file.code, language: file.language })
             });
             const data = await res.json();
-            return { path: file.path, language: file.language, codeQuality: data.codeQuality };
+            return { path: file.path, language: file.language, code: file.code, codeQuality: data.codeQuality };
           } catch {
             return null;
           }
@@ -127,6 +127,15 @@ export default function Home() {
     setCode(item.codeSnippet);
     setLanguage('javascript');
     handleExplain(item.codeSnippet, 'javascript');
+  };
+
+  // Load a repo file into the editor and trigger full code breakdown
+  const handleFileSelect = (file: RepoFileResult) => {
+    setCode(file.code);
+    setLanguage(file.language);
+    setIsRepoMode(false);
+    handleExplain(file.code, file.language);
+    setActiveTab('breakdown');
   };
 
   // Derive badge values
@@ -262,6 +271,7 @@ export default function Home() {
                   skippedSummary={repoInfo.skippedSummary}
                   isTruncated={repoInfo.isTruncated}
                   repoHealth={repoHealth}
+                  onFileSelect={handleFileSelect}
                 />
               ) : (
                 <>

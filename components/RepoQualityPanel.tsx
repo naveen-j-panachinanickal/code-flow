@@ -7,6 +7,7 @@ import RepoHealthSection from '@/components/RepoHealthSection';
 export interface RepoFileResult {
   path: string;
   language: string;
+  code: string;
   codeQuality: CodeQuality;
 }
 
@@ -18,6 +19,7 @@ interface Props {
   skippedSummary?: string;
   isTruncated?: boolean;
   repoHealth?: RepoHealth;
+  onFileSelect?: (file: RepoFileResult) => void;
 }
 
 function severityColor(s: 'error' | 'warning' | 'info') {
@@ -33,7 +35,7 @@ function ScorePill({ score }: { score: number }) {
   );
 }
 
-export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFiles, skippedSummary, isTruncated, repoHealth }: Props) {
+export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFiles, skippedSummary, isTruncated, repoHealth, onFileSelect }: Props) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   // Empty state — repo has no analyzable source files
@@ -154,20 +156,44 @@ export default function RepoQualityPanel({ owner, repo, results, noAnalyzableFil
             return (
               <div key={r.path} style={{ background: 'rgba(15,23,42,0.5)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '10px', overflow: 'hidden' }}>
                 {/* File row */}
-                <button
-                  onClick={() => setExpanded(isOpen ? null : r.path)}
-                  style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left' }}
-                >
-                  <span style={{ fontSize: '0.8rem', flexShrink: 0 }}>{isOpen ? '▾' : '▸'}</span>
-                  <span style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {r.path}
-                  </span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
-                    {errs > 0 && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 600 }}>🔴 {errs}</span>}
-                    {warns > 0 && <span style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>🟡 {warns}</span>}
-                    <ScorePill score={r.codeQuality.overallScore} />
-                  </div>
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <button
+                    onClick={() => setExpanded(isOpen ? null : r.path)}
+                    style={{ flex: 1, background: 'none', border: 'none', cursor: 'pointer', padding: '10px 14px', display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'left', minWidth: 0 }}
+                  >
+                    <span style={{ fontSize: '0.8rem', flexShrink: 0 }}>{isOpen ? '▾' : '▸'}</span>
+                    <span style={{ flex: 1, fontSize: '0.78rem', fontFamily: 'var(--font-mono)', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {r.path}
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                      {errs > 0 && <span style={{ fontSize: '0.7rem', color: '#ef4444', fontWeight: 600 }}>🔴 {errs}</span>}
+                      {warns > 0 && <span style={{ fontSize: '0.7rem', color: '#f59e0b', fontWeight: 600 }}>🟡 {warns}</span>}
+                      <ScorePill score={r.codeQuality.overallScore} />
+                    </div>
+                  </button>
+
+                  {/* Breakdown button */}
+                  {onFileSelect && (
+                    <button
+                      onClick={() => onFileSelect(r)}
+                      title="View full code breakdown"
+                      style={{
+                        flexShrink: 0, marginRight: '8px',
+                        background: 'rgba(56,189,248,0.08)',
+                        border: '1px solid rgba(56,189,248,0.2)',
+                        color: '#38bdf8',
+                        padding: '4px 10px', borderRadius: '6px',
+                        fontSize: '0.7rem', fontWeight: 600,
+                        cursor: 'pointer', whiteSpace: 'nowrap',
+                        transition: 'all 0.15s',
+                      }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(56,189,248,0.18)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(56,189,248,0.08)'; }}
+                    >
+                      ⚡ Breakdown
+                    </button>
+                  )}
+                </div>
 
                 {/* Expanded detail */}
                 {isOpen && (
