@@ -65,7 +65,7 @@ export default function RepoFileList({ owner, repo, branch, files, repoHealth, a
               {avgQualityScore !== null && (
                 <div>
                   <div style={{ fontSize: '1rem', fontWeight: 800, color: qualityColor }}>{avgQualityScore}</div>
-                  <div style={{ fontSize: '0.6rem', color: qualityColor, fontWeight: 600 }}>quality</div>
+                  <div style={{ fontSize: '0.6rem', color: qualityColor, fontWeight: 600 }}>avg quality</div>
                 </div>
               )}
               {repoHealth && (
