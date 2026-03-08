@@ -59,6 +59,7 @@ export default function Home() {
   // handleExplain: called from Paste Code Explain button — clears repo state
   const handleExplain = async (codeStr: string, selectedLanguage: string) => {
     setIsLoading(true);
+    setActiveTab('quality');
     setExplanation('');
     setSummary('');
     setNodes([]);
@@ -100,7 +101,7 @@ export default function Home() {
     setCode(fileCode);
     setLanguage(fileLang);
     handleExplain(fileCode, fileLang);
-    setActiveTab('breakdown');
+    setActiveTab('quality');
   };
 
   // GitHub repo handler: scan files, show file browser on left
@@ -167,7 +168,7 @@ export default function Home() {
     setEdges([]);
     setComplexity(undefined);
     setIsLoading(true);
-    setActiveTab('breakdown');
+    setActiveTab('quality');
 
     try {
       const res = await fetch('/api/explain', {
@@ -194,7 +195,7 @@ export default function Home() {
     setCode(item.codeSnippet);
     setLanguage('javascript');
     handleExplain(item.codeSnippet, 'javascript');
-    setActiveTab('breakdown');
+    setActiveTab('quality');
   };
 
   // Reset repo state
