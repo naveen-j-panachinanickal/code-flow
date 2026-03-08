@@ -131,6 +131,10 @@ export default function Home() {
 
   // Load a repo file into the editor and trigger full code breakdown
   const handleFileSelect = (file: RepoFileResult) => {
+    if (!file.code) {
+      alert('File source not available — please re-scan the repo to enable breakdown.');
+      return;
+    }
     setCode(file.code);
     setLanguage(file.language);
     setIsRepoMode(false);
