@@ -11,7 +11,7 @@ import AuthButton from '@/components/AuthButton';
 import SourceSelector, { HistoryItem } from '@/components/SourceSelector';
 import './page.css';
 
-type Tab = 'breakdown' | 'flow' | 'quality';
+type Tab = 'breakdown' | 'flow' | 'quality' | 'architecture';
 
 export default function Home() {
   const [code, setCode] = useState('');
@@ -21,6 +21,8 @@ export default function Home() {
   const [summary, setSummary] = useState('');
   const [nodes, setNodes] = useState<any[]>([]);
   const [edges, setEdges] = useState<any[]>([]);
+  const [architectureNodes, setArchitectureNodes] = useState<any[]>([]);
+  const [architectureEdges, setArchitectureEdges] = useState<any[]>([]);
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
   const [codeQuality, setCodeQuality] = useState<any>(undefined);
   const [activeTab, setActiveTab] = useState<Tab>('quality');
@@ -72,6 +74,8 @@ export default function Home() {
     setRepoInfo(null);
     setRepoHealth(null);
     setActiveFilePath(null);
+    setArchitectureNodes([]);
+    setArchitectureEdges([]);
 
     try {
       const response = await fetch('/api/explain', {
@@ -147,6 +151,16 @@ export default function Home() {
 
       const validResults = results.filter((r): r is RepoFileResult => r !== null && !!r.codeQuality);
       setRepoResults(validResults);
+
+      // Build architecture diagram
+      import('@/lib/architecture-parser').then(({ buildArchitectureDiagram }) => {
+        const archData = buildArchitectureDiagram(
+          validResults.map(r => ({ path: r.path, code: r.code || '' }))
+        );
+        setArchitectureNodes(archData.nodes);
+        setArchitectureEdges(archData.edges);
+      }).catch(e => console.error('Failed to build architecture map', e));
+
     } catch (e) {
       console.error('Repo analysis error:', e);
     } finally {
@@ -258,6 +272,14 @@ export default function Home() {
       badge: nodes.length > 0 ? `${nodes.length} nodes` : undefined,
       badgeClass: 'tab-badge-neutral',
       disabled: isRepoMode && !activeFilePath
+    },
+    {
+      id: 'architecture',
+      icon: '🗺️',
+      label: 'Architecture Map',
+      badge: isRepoMode && architectureNodes.length > 0 ? `${architectureNodes.length} files` : undefined,
+      badgeClass: 'tab-badge-neutral',
+      disabled: !isRepoMode || architectureNodes.length === 0
     },
   ];
 
@@ -377,6 +399,25 @@ export default function Home() {
                   </div>
                 </>
               )}
+            </div>
+
+            {/* Architecture Map tab */}
+            <div className="tab-content" style={{ display: activeTab === 'architecture' ? 'flex' : 'none', padding: '16px', flexDirection: 'column' }}>
+                <>
+                  <div className="section-heading" style={{ marginBottom: '8px' }}>Repository Architecture Map</div>
+                  <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 12px' }}>
+                    Visualizes <strong style={{color: '#8b5cf6'}}>import / require</strong> dependencies between files in the repository.
+                  </p>
+                  <div style={{ flex: 1, minHeight: '460px' }}>
+                    {architectureNodes.length > 0 ? (
+                      <ReactFlowDiagram nodes={architectureNodes} edges={architectureEdges} />
+                    ) : (
+                      <div style={{ height: '460px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', background: 'rgba(0,0,0,0.3)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        {isLoading ? 'Scanning architecture...' : 'No internal file dependencies detected in this repository.'}
+                      </div>
+                    )}
+                  </div>
+                </>
             </div>
 
             <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none', flexDirection: 'column', gap: '16px', padding: '16px', overflowY: 'auto' }}>

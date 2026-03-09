@@ -49,19 +49,24 @@ export default function ExplanationPanel({ explanation, summary, complexity, isL
         </section>
       )}
 
-      {explanation && (
         <section className="explanation-section mt-4">
-          <h3 className="section-title gradient-text-accent">Line-by-Line Breakdown</h3>
+          <h3 className="section-title gradient-text-accent">Detailed Breakdown</h3>
           <div className="explanation-content pb-4">
-            {/* Split explanation by newline for simple formatting, though markdown rendering is better in future */ }
-            {explanation.split('\n').map((line, i) => (
-              <p key={i} className={line.trim() === '' ? 'empty-line' : 'content-line'}>
-                {line}
-              </p>
-            ))}
+            {explanation.split('\n').map((line, i) => {
+              if (line.trim().startsWith('###')) {
+                return <h4 key={i} className="doc-h4">{line.replace('###', '').trim()}</h4>;
+              }
+              if (line.trim().startsWith('-')) {
+                return <li key={i} className="doc-li">{line.replace('-', '').trim()}</li>;
+              }
+              return (
+                <p key={i} className={line.trim() === '' ? 'empty-line' : 'content-line'}>
+                  {line}
+                </p>
+              );
+            })}
           </div>
         </section>
-      )}
     </div>
   );
 }

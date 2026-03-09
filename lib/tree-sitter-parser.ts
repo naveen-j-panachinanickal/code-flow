@@ -105,12 +105,15 @@ export async function parseAndExplainCode(code: string, language: string): Promi
         const nameNode = node.childForFieldName('name') || node.childForFieldName('declarator');
         const funcName = nameNode ? nameNode.text : 'anonymous';
         summaryPoints.push(`Defines function '${funcName}'.`);
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Declares function '${funcName}'`);
+        explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Function: \`${funcName}\``);
+        explanationLines.push(`- Declared on line ${node.startPosition.row + 1}`);
         addNodeAndEdge(`Define Function: ${funcName}`);
       }
       else if (type === 'if_statement') {
         summaryPoints.push('Contains conditional logic.');
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Checks condition.`);
+        explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Conditional Logic`);
+        explanationLines.push(`- Starts on line ${node.startPosition.row + 1}`);
+        explanationLines.push(`- Contains branching behavior based on a given condition.`);
         const ifId = addNodeAndEdge('If Condition');
         
         // Simplified branch charting for the top level flow
@@ -126,7 +129,9 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       }
       else if (['for_statement', 'while_statement'].includes(type)) {
         summaryPoints.push('Contains a loop.');
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Begins a loop iteration.`);
+        explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Iteration Block`);
+        explanationLines.push(`- Starts on line ${node.startPosition.row + 1}`);
+        explanationLines.push(`- Used to repeatedly execute code block.`);
         
         const loopId = addNodeAndEdge('Loop Condition');
         const endId = getNodeId('loop_end');
@@ -140,18 +145,23 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       }
       else if (['try_statement'].includes(type)) {
         summaryPoints.push('Contains try/catch block.');
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Try block for error handling.`);
+        explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Error Handling`);
+        explanationLines.push(`- Starts on line ${node.startPosition.row + 1} with a \`try/catch\` block.`);
         addNodeAndEdge('Try Block');
       }
       else if (['return_statement'].includes(type)) {
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Returns value.`);
+        explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Return Statement`);
+        explanationLines.push(`- Returns execution value on line ${node.startPosition.row + 1}.`);
         const retNode = addNodeAndEdge(`Return Statement`);
         nodes.find(n => n.id === retNode)!.type = 'output';
       }
       else if (['call_expression'].includes(type)) {
         const funcNode = node.childForFieldName('function');
         const callName = funcNode ? funcNode.text : 'function';
-        explanationLines.push(`Line ${node.startPosition.row + 1}: Function call to '${callName}'.`);
+        if (explanationLines.length === 0 || !explanationLines[explanationLines.length-1].includes('Function Call:')) {
+            explanationLines.push(`### ${explanationLines.filter(l => l.startsWith('###')).length + 1}. Operations`);
+        }
+        explanationLines.push(`- Invokes function \`${callName}()\` on line ${node.startPosition.row + 1}.`);
         if (callName.includes('print') || callName.includes('console.log') || callName.includes('System.out')) {
           addNodeAndEdge(`Print: ${callName}()`);
         } else {
