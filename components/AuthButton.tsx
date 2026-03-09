@@ -76,6 +76,7 @@ export default function AuthButton() {
         onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
         onMouseLeave={e => { if (!open) e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
       >
+        {/* eslint-disable-next-line @next/next/no-img-element -- GitHub avatar URL is dynamic */}
         <img
           src={user.avatar_url}
           alt={user.login}

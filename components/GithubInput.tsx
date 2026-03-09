@@ -4,7 +4,7 @@ import { useState } from 'react';
 
 interface Props {
   onFileLoaded: (code: string, language: string, filename: string) => void;
-  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: any) => void;
+  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: Record<string, unknown>) => void;
   isLoading: boolean;
 }
 
@@ -45,8 +45,9 @@ export default function GithubInput({ onFileLoaded, onRepoLoaded, isLoading }: P
       } else if (data.mode === 'repo') {
         onRepoLoaded(data.files, data.owner, data.repo, data);
       }
-    } catch (e: any) {
-      setError(e.message || 'Network error');
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : 'Network error';
+      setError(message);
     } finally {
       setFetching(false);
     }

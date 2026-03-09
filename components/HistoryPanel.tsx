@@ -23,8 +23,10 @@ export default function HistoryPanel({ onSelectHistory, triggerSave }: HistoryPa
     const saved = localStorage.getItem('vibe_code_history');
     if (saved) {
       try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
+        const parsed = JSON.parse(saved) as HistoryItem[];
+        // Defer state update to avoid cascading renders
+        queueMicrotask(() => setHistory(parsed));
+      } catch {
         console.error('Failed to parse history');
       }
     }
@@ -40,15 +42,18 @@ export default function HistoryPanel({ onSelectHistory, triggerSave }: HistoryPa
         summary: triggerSave.summary,
       };
 
-      setHistory(prev => {
-        // Prevent duplicates (simple check based on exact code match)
-        if (prev.some(item => item.codeSnippet === newItem.codeSnippet)) {
-           return prev;
-        }
-        
-        const updated = [newItem, ...prev].slice(0, 10); // Keep last 10
-        localStorage.setItem('vibe_code_history', JSON.stringify(updated));
-        return updated;
+      // Defer state update to avoid cascading renders
+      queueMicrotask(() => {
+        setHistory(prev => {
+          // Prevent duplicates (simple check based on exact code match)
+          if (prev.some(item => item.codeSnippet === newItem.codeSnippet)) {
+             return prev;
+          }
+          
+          const updated = [newItem, ...prev].slice(0, 10); // Keep last 10
+          localStorage.setItem('vibe_code_history', JSON.stringify(updated));
+          return updated;
+        });
       });
     }
   }, [triggerSave]);

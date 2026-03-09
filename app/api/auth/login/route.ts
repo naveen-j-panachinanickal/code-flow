@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
 import { randomBytes } from 'crypto';
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   const clientId = process.env.GITHUB_CLIENT_ID;
   if (!clientId) {
     return NextResponse.json({ error: 'GITHUB_CLIENT_ID not configured' }, { status: 500 });

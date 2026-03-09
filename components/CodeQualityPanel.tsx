@@ -134,7 +134,7 @@ export default function CodeQualityPanel({ codeQuality, isLoading }: Props) {
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '10px' }}>Code Issues</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {codeQuality.smells.map((s, i) => {
-              const styles: Record<string, any> = {
+              const styles: Record<'error' | 'warning' | 'info', { bg: string; border: string }> = {
                 error: { bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.2)' },
                 warning: { bg: 'rgba(245,158,11,0.06)', border: 'rgba(245,158,11,0.2)' },
                 info: { bg: 'rgba(56,189,248,0.06)', border: 'rgba(56,189,248,0.2)' },

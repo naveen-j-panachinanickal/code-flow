@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import Editor from '@monaco-editor/react';
 import './CodeEditor.css';
 

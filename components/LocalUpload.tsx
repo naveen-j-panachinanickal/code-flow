@@ -4,7 +4,7 @@ import { useState, useRef, useCallback, DragEvent } from 'react';
 import { RepoFile } from './GithubInput';
 
 interface Props {
-  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: any) => void;
+  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: Record<string, unknown>) => void;
   isLoading: boolean;
 }
 
@@ -20,6 +20,17 @@ const EXTENSION_TO_LANG: Record<string, string> = {
 const IGNORED_DIRS = new Set(['node_modules', '.git', 'dist', 'build', '.next', 'out', '.idea', '.vscode']);
 const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB max per file to avoid locking up browser
 
+const getLanguageFromPath = (path: string) => {
+  const ext = path.split('.').pop()?.toLowerCase();
+  return ext ? EXTENSION_TO_LANG[ext] || 'text' : 'text';
+};
+
+const isAnalyzable = (path: string) => {
+  // Only allow code files in our supported list
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  return Object.keys(EXTENSION_TO_LANG).includes(ext);
+};
+
 export default function LocalUpload({ onRepoLoaded, isLoading }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [error, setError] = useState('');
@@ -27,18 +38,7 @@ export default function LocalUpload({ onRepoLoaded, isLoading }: Props) {
   const folderInputRef = useRef<HTMLInputElement>(null);
   const filesInputRef = useRef<HTMLInputElement>(null);
 
-  const getLanguageFromPath = (path: string) => {
-    const ext = path.split('.').pop()?.toLowerCase();
-    return ext ? EXTENSION_TO_LANG[ext] || 'text' : 'text';
-  };
-
-  const isAnalyzable = (path: string) => {
-    // Only allow code files in our supported list
-    const ext = path.split('.').pop()?.toLowerCase() || '';
-    return Object.keys(EXTENSION_TO_LANG).includes(ext);
-  };
-
-  const processFiles = async (fileList: FileList | File[]) => {
+  const processFiles = useCallback(async (fileList: FileList | File[]) => {
     if (fileList.length === 0) return;
     setError('');
     setLoading(true);
@@ -119,7 +119,7 @@ export default function LocalUpload({ onRepoLoaded, isLoading }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [setError, setLoading, onRepoLoaded]);
 
   const handleDrag = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -139,7 +139,7 @@ export default function LocalUpload({ onRepoLoaded, isLoading }: Props) {
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       processFiles(e.dataTransfer.files);
     }
-  }, []);
+  }, [processFiles]);
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -219,7 +219,7 @@ export default function LocalUpload({ onRepoLoaded, isLoading }: Props) {
       />
       <input 
         type="file" 
-        // @ts-ignore - webkitdirectory is a non-standard but widely supported attribute needed for folder selection
+        // @ts-expect-error -- webkitdirectory is a non-standard but widely supported attribute needed for folder selection
         webkitdirectory="true" 
         directory="true" 
         multiple 

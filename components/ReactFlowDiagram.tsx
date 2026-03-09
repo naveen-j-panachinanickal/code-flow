@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 import {
   ReactFlow,
   useNodesState,
@@ -44,8 +44,8 @@ const getLayoutedElements = (nodes: FlowNode[], edges: FlowEdge[], direction = '
     const nodeWithPosition = dagreGraph.node(node.id);
     return {
       ...node,
-      targetPosition: 'top' as any,
-      sourcePosition: 'bottom' as any,
+      targetPosition: 'top' as const,
+      sourcePosition: 'bottom' as const,
       position: {
         x: nodeWithPosition.x - nodeWidth / 2,
         y: nodeWithPosition.y - nodeHeight / 2,
@@ -71,7 +71,8 @@ function FlowLogic({ nodes, edges }: ReactFlowDiagramProps) {
     const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(nodes, edges);
     setNodes(layoutedNodes);
     setEdges(layoutedEdges);
-    setStepIndex(-1);
+    // Defer step reset to avoid cascading renders
+    queueMicrotask(() => setStepIndex(-1));
     
     // Fit view after layout to ensure it scales correctly
     setTimeout(() => {
@@ -84,7 +85,8 @@ function FlowLogic({ nodes, edges }: ReactFlowDiagramProps) {
     if (!isPlaying) return;
 
     if (stepIndex >= rfNodes.length) {
-      setIsPlaying(false);
+      // Defer to avoid cascading renders
+      queueMicrotask(() => setIsPlaying(false));
       return;
     }
 

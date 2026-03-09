@@ -1,11 +1,11 @@
 export interface FlowNode {
   id: string;
   position: { x: number; y: number };
-  data: { label: string; originalStyle?: Record<string, any> };
+  data: { label: string; originalStyle?: React.CSSProperties };
   type?: string;
   parentId?: string;
   extent?: 'parent';
-  style?: Record<string, any>;
+  style?: React.CSSProperties;
 }
 
 export interface FlowEdge {
@@ -15,9 +15,9 @@ export interface FlowEdge {
   label?: string;
   type?: string;
   animated?: boolean;
-  style?: Record<string, any>;
-  labelStyle?: Record<string, any>;
-  labelBgStyle?: Record<string, any>;
+  style?: React.CSSProperties;
+  labelStyle?: React.CSSProperties;
+  labelBgStyle?: React.CSSProperties;
 }
 
 export interface CodeSmell {

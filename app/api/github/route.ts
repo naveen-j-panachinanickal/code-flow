@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
     }
     const treeData = await treeRes.json();
 
-    const allItems: any[] = treeData.tree || [];
+    const allItems: Array<{ path: string; type: string; size?: number }> = treeData.tree || [];
     const isTruncated: boolean = treeData.truncated === true;
 
     // Count what's in the repo for better error messages
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     // Filter to analyzable files
     const files = allItems
-      .filter((item: any) => {
+      .filter((item: { path: string; type: string }) => {
         if (item.type !== 'blob') return false;
         const ext = (item.path.split('.').pop() || '').toLowerCase();
         allExtensions.add(ext);
@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch content for each file
     const fileResults = await Promise.all(
-      files.map(async (file: any) => {
+      files.map(async (file: { path: string; type: string }) => {
         const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${file.path}`;
         try {
           const res = await fetch(rawUrl, { headers: authHeaders });
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
       '.gitignore', 'makefile',
     ];
 
-    const healthItems = allItems.filter((item: any) => {
+    const healthItems = allItems.filter((item: { path: string; type: string }) => {
       if (item.type !== 'blob') return false;
       const filename = item.path.split('/').pop()?.toLowerCase() || '';
       // exact filename matches
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
 
     // Fetch health file contents
     const healthContents: Record<string, string> = {};
-    await Promise.all(healthItems.map(async (item: any) => {
+    await Promise.all(healthItems.map(async (item: { path: string; type: string }) => {
       try {
         const rawUrl = `https://raw.githubusercontent.com/${owner}/${repo}/${defaultBranch}/${item.path}`;
         const res = await fetch(rawUrl, { headers: authHeaders });
@@ -234,7 +234,7 @@ export async function POST(req: NextRequest) {
       } catch { /* skip */ }
     }));
 
-    const allPaths = allItems.filter((i: any) => i.type === 'blob').map((i: any) => i.path as string);
+    const allPaths = allItems.filter((i: { path: string; type: string }) => i.type === 'blob').map((i: { path: string; type: string }) => i.path);
     const repoHealth = analyzeRepoHealth(allPaths, healthContents);
 
     // Count skipped (non-analyzable) files for the panel footer
@@ -265,8 +265,9 @@ export async function POST(req: NextRequest) {
     });
 
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GitHub API route error:', error);
-    return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

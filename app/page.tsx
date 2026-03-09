@@ -9,6 +9,8 @@ import { RepoFile } from '@/components/GithubInput';
 import RepoHealthSection from '@/components/RepoHealthSection';
 import AuthButton from '@/components/AuthButton';
 import SourceSelector, { HistoryItem } from '@/components/SourceSelector';
+import { FlowNode, FlowEdge, CodeQuality } from '@/lib/types';
+import { RepoHealth } from '@/lib/repo-health';
 import './page.css';
 
 type Tab = 'breakdown' | 'flow' | 'quality' | 'architecture';
@@ -19,12 +21,13 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [explanation, setExplanation] = useState('');
   const [summary, setSummary] = useState('');
-  const [nodes, setNodes] = useState<any[]>([]);
-  const [edges, setEdges] = useState<any[]>([]);
-  const [architectureNodes, setArchitectureNodes] = useState<any[]>([]);
-  const [architectureEdges, setArchitectureEdges] = useState<any[]>([]);
+  const [nodes, setNodes] = useState<FlowNode[]>([]);
+  const [edges, setEdges] = useState<FlowEdge[]>([]);
+  const [architectureNodes, setArchitectureNodes] = useState<FlowNode[]>([]);
+  const [architectureEdges, setArchitectureEdges] = useState<FlowEdge[]>([]);
+  const [architectureSummary, setArchitectureSummary] = useState<string[]>([]);
   const [complexity, setComplexity] = useState<{score: number, rating: string} | undefined>(undefined);
-  const [codeQuality, setCodeQuality] = useState<any>(undefined);
+  const [codeQuality, setCodeQuality] = useState<CodeQuality | undefined>(undefined);
   const [activeTab, setActiveTab] = useState<Tab>('quality');
   // historyTrigger used to save analysis to history
   const [historyTrigger, setHistoryTrigger] = useState<{code: string; summary: string} | undefined>(undefined);
@@ -33,7 +36,7 @@ export default function Home() {
   // Repo scan state
   const [repoResults, setRepoResults] = useState<RepoFileResult[]>([]);
   const [repoInfo, setRepoInfo] = useState<{ owner: string; repo: string; branch: string; noAnalyzableFiles?: boolean; skippedSummary?: string } | null>(null);
-  const [repoHealth, setRepoHealth] = useState<any>(null);
+  const [repoHealth, setRepoHealth] = useState<RepoHealth | null>(null);
   const [isRepoMode, setIsRepoMode] = useState(false);
   const [activeFilePath, setActiveFilePath] = useState<string | null>(null);
   const [scanProgress, setScanProgress] = useState(0);
@@ -76,6 +79,7 @@ export default function Home() {
     setActiveFilePath(null);
     setArchitectureNodes([]);
     setArchitectureEdges([]);
+    setArchitectureSummary([]);
 
     try {
       const response = await fetch('/api/explain', {
@@ -109,7 +113,7 @@ export default function Home() {
   };
 
   // GitHub repo handler: scan files, show file browser on left
-  const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string, repoData: any) => {
+  const handleRepoLoaded = async (files: RepoFile[], owner: string, repo: string, repoData: { branch?: string; noAnalyzableFiles?: boolean; skippedSummary?: string; repoHealth?: RepoHealth }) => {
     setIsLoading(true);
     setIsRepoMode(true);
     setActiveFilePath(null);
@@ -159,6 +163,7 @@ export default function Home() {
         );
         setArchitectureNodes(archData.nodes);
         setArchitectureEdges(archData.edges);
+        setArchitectureSummary(archData.summary);
       }).catch(e => console.error('Failed to build architecture map', e));
 
     } catch (e) {
@@ -235,11 +240,11 @@ export default function Home() {
 
   // Derive badge values
   const errorCount = isRepoMode
-    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter((s: any) => s.severity === 'error').length, 0)
-    : (codeQuality?.smells?.filter((s: any) => s.severity === 'error').length ?? 0);
+    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter(s => s.severity === 'error').length, 0)
+    : (codeQuality?.smells?.filter(s => s.severity === 'error').length ?? 0);
   const warnCount = isRepoMode
-    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter((s: any) => s.severity === 'warning').length, 0)
-    : (codeQuality?.smells?.filter((s: any) => s.severity === 'warning').length ?? 0);
+    ? repoResults.reduce((a, r) => a + r.codeQuality.smells.filter(s => s.severity === 'warning').length, 0)
+    : (codeQuality?.smells?.filter(s => s.severity === 'warning').length ?? 0);
   const hasQualityData = isRepoMode ? repoResults.length > 0 : !!codeQuality;
 
   const qualityBadgeClass = !hasQualityData ? 'tab-badge-neutral' : errorCount > 0 ? 'tab-badge-error' : warnCount > 0 ? 'tab-badge-warn' : 'tab-badge-ok';
@@ -408,6 +413,21 @@ export default function Home() {
                   <p style={{ fontSize: '0.78rem', color: '#475569', margin: '0 0 12px' }}>
                     Visualizes <strong style={{color: '#8b5cf6'}}>import / require</strong> dependencies between files in the repository.
                   </p>
+
+                  {architectureSummary.length > 0 && (
+                    <div className="explanation-content" style={{ marginBottom: '16px', background: 'rgba(15,23,42,0.4)', padding: '16px', borderRadius: '12px', border: '1px solid rgba(139,92,246,0.15)' }}>
+                      {architectureSummary.map((line, i) => {
+                        if (line.trim().startsWith('###')) {
+                          return <h4 key={i} className="doc-h4" style={{ marginTop: i === 0 ? 0 : '1.5rem', color: '#e2e8f0', fontSize: '0.95rem' }}>{line.replace('###', '').trim()}</h4>;
+                        }
+                        if (line.trim().startsWith('-')) {
+                          return <li key={i} className="doc-li" style={{ fontSize: '0.85rem' }}>{line.replace('-', '').replace(/`/g, '`').trim()}</li>; // Keeping the backticks to be caught by markdown rendering or just displayed raw if needed, we'll strip them here for clean UI
+                        }
+                        return <p key={i} className="content-line">{line}</p>;
+                      })}
+                    </div>
+                  )}
+
                   <div style={{ flex: 1, minHeight: '460px' }}>
                     {architectureNodes.length > 0 ? (
                       <ReactFlowDiagram nodes={architectureNodes} edges={architectureEdges} />

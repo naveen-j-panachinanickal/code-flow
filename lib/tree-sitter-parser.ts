@@ -2,13 +2,16 @@ import path from 'path';
 import { ExplanationResult, FlowNode, FlowEdge } from './types';
 
 let isParserInitialized = false;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- web-tree-sitter has no bundled types
 let ParserClass: any = null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- web-tree-sitter has no bundled types
 let TreeSitterModule: any = null;
 
 export async function parseAndExplainCode(code: string, language: string): Promise<ExplanationResult> {
   try {
     if (!isParserInitialized) {
       // Turbopack workaround: require at runtime so it isn't statically bound to undefined
+      // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic runtime import needed for Turbopack
       TreeSitterModule = require('web-tree-sitter');
       ParserClass = TreeSitterModule.Parser || TreeSitterModule.default || TreeSitterModule;
       await ParserClass.init();
@@ -23,8 +26,8 @@ export async function parseAndExplainCode(code: string, language: string): Promi
     if (language.toLowerCase() === 'java') wasmFile = 'tree-sitter-java.wasm';
 
     const wasmPath = path.join(process.cwd(), 'public', 'wasm', wasmFile);
-    // @ts-ignore
-    const LanguageClass = TreeSitterModule.Language || (TreeSitterModule as any).default?.Language || TreeSitterModule.default?.default?.Language;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- web-tree-sitter untyped
+    const LanguageClass = (TreeSitterModule as any).Language || (TreeSitterModule as any).default?.Language || (TreeSitterModule as any).default?.default?.Language;
     const Lang = await LanguageClass.load(wasmPath);
     parser.setLanguage(Lang);
 
@@ -50,7 +53,7 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       fontSize: '14px',
       fontWeight: '600',
       minWidth: '200px',
-      textAlign: 'center'
+      textAlign: 'center' as const,
     };
 
     const edgeStyle = {
@@ -94,6 +97,7 @@ export async function parseAndExplainCode(code: string, language: string): Promi
     }
 
     // Traverse the Tree-Sitter AST
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tree-Sitter node type is untyped
     function traverse(node: any) {
       const type = node.type;
       
@@ -206,7 +210,9 @@ export async function parseAndExplainCode(code: string, language: string): Promi
     const codeOnlyLines = totalLines - blankLines - commentLines;
 
     // Count functions and their lengths
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tree-Sitter AST node
     const funcNodes: any[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tree-Sitter AST node
     function collectFunctions(node: any) {
       if (['function_definition', 'method_declaration', 'function_declaration', 'arrow_function'].includes(node.type)) {
         funcNodes.push(node);
@@ -223,9 +229,10 @@ export async function parseAndExplainCode(code: string, language: string): Promi
     const avgFunctionLength = functionCount > 0 
       ? Math.round(functionLengths.reduce((a, b) => a + b, 0) / functionCount)
       : 0;
-    const maxFunctionLength = functionCount > 0 ? Math.max(...functionLengths) : 0;
+
 
     // Max nesting depth
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Tree-Sitter AST node
     function getMaxDepth(node: any, depth = 0): number {
       const nestyTypes = ['if_statement', 'for_statement', 'while_statement', 'try_statement', 'switch_statement', 'with_statement'];
       const currentDepth = nestyTypes.includes(node.type) ? depth + 1 : depth;
@@ -243,7 +250,7 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       const params = f.childForFieldName('parameters') || f.childForFieldName('formal_parameters');
       return params ? params.namedChildCount : 0;
     });
-    const maxParams = paramCounts.length > 0 ? Math.max(...paramCounts) : 0;
+
 
     // Maintainability Index (simplified Microsoft formula variant: 0-100)
     const halsteadVolume = codeOnlyLines * Math.log2(Math.max(codeOnlyLines, 2));
@@ -335,10 +342,11 @@ export async function parseAndExplainCode(code: string, language: string): Promi
       complexity: { score: cyclomaticComplexity, rating },
       codeQuality
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Tree-Sitter Parsing Error:", error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown parsing error';
     return {
-      explanation: `Could not parse the code structure. Error: ${error.message}`,
+      explanation: `Could not parse the code structure. Error: ${errorMessage}`,
       summary: "The code provided appears to contain syntax errors or is not a known language.",
       nodes: [{ id: 'error', position: { x: 0, y: 0 }, data: { label: 'Syntax Error' }, style: { background: '#ef4444', color: '#fff', padding: '10px 16px', borderRadius: '8px', border: '2px solid #b91c1c' } }],
       edges: [],

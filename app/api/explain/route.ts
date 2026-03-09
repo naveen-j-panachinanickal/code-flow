@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(result);
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Error in /api/explain:', error);
     
     return NextResponse.json(

@@ -20,7 +20,7 @@ interface Props {
   isLoading: boolean;
   // github
   onFileLoaded: (code: string, language: string, filename: string) => void;
-  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: any) => void;
+  onRepoLoaded: (files: RepoFile[], owner: string, repo: string, data: Record<string, unknown>) => void;
   // repo scan state (passed from page.tsx)
   repoFiles: RepoFileResult[];
   repoOwner: string;
@@ -46,7 +46,7 @@ export interface HistoryItem {
 export default function SourceSelector({
   code, setCode, language, setLanguage, onExplain, isLoading,
   onFileLoaded, onRepoLoaded,
-  repoFiles, repoOwner, repoBranch, repoRepo, repoHealth, activeFilePath, onFileSelect, onRepoReset, onRepoHeaderClick,
+  repoFiles, repoOwner, repoBranch, repoRepo, repoHealth, activeFilePath, onFileSelect, onRepoHeaderClick,
   historyItems, onHistorySelect,
 }: Props) {
   const [mode, setMode] = useState<SourceMode>('editor');
@@ -58,8 +58,11 @@ export default function SourceSelector({
   useEffect(() => {
     // If a repo scan just completed, enforce the correct file browser mode
     if (hasRepoScan) {
-      if (repoOwner === 'Local') setMode('upload');
-      else setMode('github');
+      // Defer to avoid cascading renders from synchronous setState in effect
+      queueMicrotask(() => {
+        if (repoOwner === 'Local') setMode('upload');
+        else setMode('github');
+      });
     }
   }, [repoOwner, hasRepoScan]);
 
