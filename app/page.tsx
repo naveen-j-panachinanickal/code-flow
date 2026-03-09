@@ -59,6 +59,7 @@ export default function Home() {
   // handleExplain: called from Paste Code Explain button — clears repo state
   const handleExplain = async (codeStr: string, selectedLanguage: string) => {
     setIsLoading(true);
+    setActiveTab('quality');
     setExplanation('');
     setSummary('');
     setNodes([]);
@@ -100,7 +101,7 @@ export default function Home() {
     setCode(fileCode);
     setLanguage(fileLang);
     handleExplain(fileCode, fileLang);
-    setActiveTab('breakdown');
+    setActiveTab('quality');
   };
 
   // GitHub repo handler: scan files, show file browser on left
@@ -167,7 +168,7 @@ export default function Home() {
     setEdges([]);
     setComplexity(undefined);
     setIsLoading(true);
-    setActiveTab('breakdown');
+    setActiveTab('quality');
 
     try {
       const res = await fetch('/api/explain', {
@@ -194,10 +195,22 @@ export default function Home() {
     setCode(item.codeSnippet);
     setLanguage('javascript');
     handleExplain(item.codeSnippet, 'javascript');
-    setActiveTab('breakdown');
+    setActiveTab('quality');
   };
 
-  // Reset repo state
+  // File browser header click: return to repo overview
+  const handleRepoOverviewClick = () => {
+    setActiveFilePath(null);
+    setCodeQuality(undefined);
+    setExplanation('');
+    setSummary('');
+    setNodes([]);
+    setEdges([]);
+    setComplexity(undefined);
+    setActiveTab('quality');
+  };
+
+  // Reset repo state (scan new repo)
   const handleRepoReset = () => {
     setIsRepoMode(false);
     setRepoResults([]);
@@ -218,7 +231,11 @@ export default function Home() {
   const qualityBadgeClass = !hasQualityData ? 'tab-badge-neutral' : errorCount > 0 ? 'tab-badge-error' : warnCount > 0 ? 'tab-badge-warn' : 'tab-badge-ok';
   const qualityBadgeLabel = !hasQualityData ? '' : isRepoMode ? `${repoResults.length} files` : errorCount > 0 ? `${errorCount}` : warnCount > 0 ? `${warnCount}` : '✓';
 
-  const tabs: { id: Tab; icon: string; label: string; badge?: string; badgeClass?: string }[] = [
+  const avgQualityScore = isRepoMode && repoResults.length > 0
+    ? Math.round(repoResults.reduce((acc, r) => acc + r.codeQuality.overallScore, 0) / repoResults.length)
+    : null;
+
+  const tabs: { id: Tab; icon: string; label: string; badge?: string; badgeClass?: string; disabled?: boolean }[] = [
     {
       id: 'quality',
       icon: '🔍',
@@ -231,14 +248,16 @@ export default function Home() {
       icon: '📄',
       label: 'Code Breakdown',
       badge: complexity ? complexity.rating : undefined,
-      badgeClass: complexity?.rating === 'High' ? 'tab-badge-error' : complexity?.rating === 'Medium' ? 'tab-badge-warn' : 'tab-badge-ok'
+      badgeClass: complexity?.rating === 'High' ? 'tab-badge-error' : complexity?.rating === 'Medium' ? 'tab-badge-warn' : 'tab-badge-ok',
+      disabled: isRepoMode && !activeFilePath
     },
     {
       id: 'flow',
       icon: '🎯',
       label: 'Execution Path',
       badge: nodes.length > 0 ? `${nodes.length} nodes` : undefined,
-      badgeClass: 'tab-badge-neutral'
+      badgeClass: 'tab-badge-neutral',
+      disabled: isRepoMode && !activeFilePath
     },
   ];
 
@@ -279,6 +298,7 @@ export default function Home() {
               activeFilePath={activeFilePath}
               onFileSelect={handleFileSelectFromBrowser}
               onRepoReset={handleRepoReset}
+              onRepoHeaderClick={handleRepoOverviewClick}
               historyItems={historyItems}
               onHistorySelect={handleHistorySelect}
             />
@@ -305,11 +325,13 @@ export default function Home() {
                 <button
                   key={tab.id}
                   className={`tab-item ${activeTab === tab.id ? 'active' : ''}`}
-                  onClick={() => setActiveTab(tab.id)}
+                  style={tab.disabled ? { opacity: 0.4, cursor: 'not-allowed' } : {}}
+                  onClick={() => !tab.disabled && setActiveTab(tab.id)}
+                  title={tab.disabled ? 'Select a file to view this tab' : ''}
                 >
                   <span>{tab.icon}</span>
                   <span>{tab.label}</span>
-                  {tab.badge && (
+                  {tab.badge && !tab.disabled && (
                     <span className={`tab-badge ${tab.badgeClass}`}>{tab.badge}</span>
                   )}
                 </button>
@@ -357,11 +379,25 @@ export default function Home() {
               )}
             </div>
 
-            {/* Quality Review tab — unified: single file quality + repo health (if from repo) */}
             <div className="tab-content" style={{ display: activeTab === 'quality' ? 'flex' : 'none', flexDirection: 'column', gap: '16px', padding: '16px', overflowY: 'auto' }}>
-              {/* Repo health section always shown when in repo mode */}
-              {isRepoMode && repoHealth && (
-                <RepoHealthSection health={repoHealth} />
+              {/* Repo health section only shown when no file is selected */}
+              {isRepoMode && repoHealth && !activeFilePath && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  
+                  {avgQualityScore !== null && (
+                    <div style={{ background: 'rgba(15,23,42,0.4)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '12px', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+                      <div>
+                        <div style={{ fontSize: '1rem', fontWeight: 600, color: '#f8fafc' }}>Average Code Quality</div>
+                        <div style={{ fontSize: '0.78rem', color: '#64748b', marginTop: '4px' }}>Across all {repoResults.length} scanned files</div>
+                      </div>
+                      <div style={{ fontSize: '2.5rem', fontWeight: 800, color: avgQualityScore >= 80 ? '#22c55e' : avgQualityScore >= 55 ? '#f59e0b' : '#ef4444' }}>
+                        {avgQualityScore}
+                      </div>
+                    </div>
+                  )}
+
+                  <RepoHealthSection health={repoHealth} />
+                </div>
               )}
               {/* Repo info banner when no file selected yet */}
               {isRepoMode && !activeFilePath && !repoHealth && (
